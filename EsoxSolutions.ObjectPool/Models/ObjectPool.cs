@@ -12,7 +12,7 @@ namespace EsoxSolutions.ObjectPool.Models
         private List<T> availableObjects;
         private List<T> activeObjects;
         private object lockObject = new object();
-        public ObjectPool(List<T> initialObjects) 
+        public ObjectPool(List<T> initialObjects)
         {
             this.activeObjects = new();
             this.availableObjects = initialObjects;
@@ -35,12 +35,12 @@ namespace EsoxSolutions.ObjectPool.Models
 
         public void ReturnObject(PoolModel<T> obj)
         {
-             lock (lockObject)
+            lock (lockObject)
             {
                 var unwrapped = obj.Unwrap();
                 if (!this.activeObjects.Contains(unwrapped))
                 {
-                    throw new ArgumentException("Object not in pool");
+                    throw new NoObjectsInPoolException("Object not in pool");
                 }
                 this.activeObjects.Remove(unwrapped);
                 this.availableObjects.Add(unwrapped);

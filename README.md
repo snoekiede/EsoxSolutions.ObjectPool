@@ -46,7 +46,7 @@ An example use:
 			var initialObjects = new List<int> { 1, 2, 3 };
 			var objectPool = new QueryableObjectPool<int>(initialObjects);
 
-			using (var model = objectPool.Query(x => x == 2))
+			using (var model = objectPool.GetObject(x => x == 2))
 			{
 				var value = model.Unwrap();
 				Console.WriteLine(value);

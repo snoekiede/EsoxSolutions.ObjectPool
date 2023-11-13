@@ -66,7 +66,7 @@ namespace EsoxSolutions.ObjectPool.Models
         }
 
         /// <summary>
-        /// Returns the number of available objects in the pool
+        /// Gets the number of available objects in the pool
         /// </summary>
         public int availableObjectCount => this.availableObjects.Count;
     }

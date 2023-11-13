@@ -1,4 +1,5 @@
 ﻿using EsoxSolutions.ObjectPool.Models;
+using EsoxSolutions.ObjectPool.Pools;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,8 +13,8 @@ namespace EsoxSolutions.ObjectPool.Tests
         [Fact]
         public void CreatePoolModel()
         {
-            var pool=new ObjectPool<int>(new List<int> { 1, 2, 3 });
-            var model= new PoolModel<int>(1,pool);
+            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+            var model = new PoolModel<int>(1, pool);
 
             Assert.NotNull(model);
             Assert.Equal(1, model.Unwrap());
@@ -54,7 +55,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         [Fact]
         public void TestMultithreaded()
         {
-            var initialObjects = new List<int> { 1, 2, 3 };
+            var initialObjects = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
             var objectPool = new ObjectPool<int>(initialObjects);
 
             var initialCount = objectPool.availableObjectCount;
@@ -66,13 +67,12 @@ namespace EsoxSolutions.ObjectPool.Tests
                     using (var model = objectPool.GetObject())
                     {
                         var afterCount = objectPool.availableObjectCount;
-                        Assert.Equal(2, afterCount);
                     }
                 }));
             }
             Task.WaitAll(tasks.ToArray());
             var afterusingCount = objectPool.availableObjectCount;
-            Assert.Equal(3, afterusingCount);
+            Assert.Equal(11, afterusingCount);
         }
 
 

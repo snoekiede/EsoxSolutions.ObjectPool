@@ -1,11 +1,12 @@
 ﻿using EsoxSolutions.ObjectPool.Exceptions;
+using EsoxSolutions.ObjectPool.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EsoxSolutions.ObjectPool.Models
+namespace EsoxSolutions.ObjectPool.Pools
 {
     /// <summary>
     /// A threadsafe generic object pool
@@ -13,9 +14,18 @@ namespace EsoxSolutions.ObjectPool.Models
     /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
     public class ObjectPool<T>
     {
-        private List<T> availableObjects;
-        private List<T> activeObjects;
-        private object lockObject = new object();
+        /// <summary>
+        /// A list of available objects
+        /// </summary>
+        protected List<T> availableObjects;
+        /// <summary>
+        /// A list of active objects
+        /// </summary>
+        protected List<T> activeObjects;
+        /// <summary>
+        /// The mutex for thread-safety
+        /// </summary>
+        protected Mutex mutex = new();
         /// <summary>
         /// Constructor for the object pool
         /// </summary>
@@ -33,17 +43,17 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public PoolModel<T> GetObject()
         {
-            lock (lockObject)
+            mutex.WaitOne();
+            if (this.availableObjects.Count == 0)
             {
-                if (this.availableObjects.Count == 0)
-                {
-                    throw new NoObjectsInPoolException("No objects available");
-                }
-                var obj = this.availableObjects[0];
-                this.availableObjects.RemoveAt(0);
-                this.activeObjects.Add(obj);
-                return new PoolModel<T>(obj, this);
+                throw new NoObjectsInPoolException("No objects available");
             }
+            var obj = this.availableObjects[0];
+            this.availableObjects.RemoveAt(0);
+            this.activeObjects.Add(obj);
+            mutex.ReleaseMutex();
+            return new PoolModel<T>(obj, this);
+
         }
 
         /// <summary>
@@ -53,16 +63,15 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            lock (lockObject)
+            mutex.WaitOne();
+            var unwrapped = obj.Unwrap();
+            if (!this.activeObjects.Contains(unwrapped))
             {
-                var unwrapped = obj.Unwrap();
-                if (!this.activeObjects.Contains(unwrapped))
-                {
-                    throw new NoObjectsInPoolException("Object not in pool");
-                }
-                this.activeObjects.Remove(unwrapped);
-                this.availableObjects.Add(unwrapped);
+                throw new NoObjectsInPoolException("Object not in pool");
             }
+            this.activeObjects.Remove(unwrapped);
+            this.availableObjects.Add(unwrapped);
+            mutex.ReleaseMutex();
         }
 
         /// <summary>

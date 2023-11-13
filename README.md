@@ -8,7 +8,7 @@ What you do is that make a pool of objects, usually an array, and you have one o
 
 This is a very simple implementation of such a pool, which is thread safe, and can be used in a multi-threaded environment.
 
-**Caveat**: I consider this version to be still in beta. If you find any bugs, please report them to me, or mail me at info@esoxsolutions.nl
+**Caveat**: I consider this version to be still in beta. If you find any bugs, please report them to me, or mail me at [info@esoxsolutions.nl](info@esoxsolutions.nl)
 ## Usage
 
 There are two main classes:
@@ -16,7 +16,7 @@ There are two main classes:
 1. The PoolModel class which holds an object in a pool.
 2. The ObjectPool which releases and returns the PoolModel objects.
 
-###PoolModel
+### PoolModel
 The PoolModel is a generic class. It takes a type parameter, which is the type of the object you want to pool. 
 To get the value stored in the PoolModel, use the Unwrap method.
 

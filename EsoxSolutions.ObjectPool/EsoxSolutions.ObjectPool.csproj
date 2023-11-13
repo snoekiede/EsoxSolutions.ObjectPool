@@ -10,13 +10,14 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
     <PackageTags>objectpool;threadsafe</PackageTags>
-    <AssemblyVersion>1.0.0.1</AssemblyVersion>
-    <FileVersion>1.0.0.1</FileVersion>
+    <AssemblyVersion>1.0.0.2</AssemblyVersion>
+    <FileVersion>1.0.0.2</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Threadsafe Object pool for .NET</Title>
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>version 1.0: Beta</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

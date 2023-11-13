@@ -7,6 +7,10 @@ using System.Threading.Tasks;
 
 namespace EsoxSolutions.ObjectPool.Models
 {
+    /// <summary>
+    /// A threadsafe generic object pool
+    /// </summary>
+    /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
     public class ObjectPool<T>
     {
         private List<T> availableObjects;
@@ -47,9 +51,6 @@ namespace EsoxSolutions.ObjectPool.Models
             }
         }
 
-        public int GetAvailableObjectsCount()
-        {
-            return this.availableObjects.Count;
-        }
+        public int availableObjectCount => this.availableObjects.Count;
     }
 }

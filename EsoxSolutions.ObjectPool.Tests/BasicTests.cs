@@ -24,10 +24,10 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new ObjectPool<int>(initialObjects);
-            
-            var initialCount = objectPool.GetAvailableObjectsCount();
+
+            var initialCount = objectPool.availableObjectCount;
             var model = objectPool.GetObject();
-            var afterCount = objectPool.GetAvailableObjectsCount();
+            var afterCount = objectPool.availableObjectCount;
 
             Assert.Equal(3, initialCount);
             Assert.Equal(2, afterCount);
@@ -40,14 +40,38 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new ObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.GetAvailableObjectsCount();
+            var initialCount = objectPool.availableObjectCount;
             using (var model = objectPool.GetObject())
             {
-                var afterCount = objectPool.GetAvailableObjectsCount();
+                var afterCount = objectPool.availableObjectCount;
                 Assert.Equal(3, initialCount);
                 Assert.Equal(2, afterCount);
             }
-            var afterusingCount = objectPool.GetAvailableObjectsCount();
+            var afterusingCount = objectPool.availableObjectCount;
+            Assert.Equal(3, afterusingCount);
+        }
+
+        [Fact]
+        public void TestMultithreaded()
+        {
+            var initialObjects = new List<int> { 1, 2, 3 };
+            var objectPool = new ObjectPool<int>(initialObjects);
+
+            var initialCount = objectPool.availableObjectCount;
+            var tasks = new List<Task>();
+            for (int i = 0; i < 10; i++)
+            {
+                tasks.Add(Task.Run(() =>
+                {
+                    using (var model = objectPool.GetObject())
+                    {
+                        var afterCount = objectPool.availableObjectCount;
+                        Assert.Equal(2, afterCount);
+                    }
+                }));
+            }
+            Task.WaitAll(tasks.ToArray());
+            var afterusingCount = objectPool.availableObjectCount;
             Assert.Equal(3, afterusingCount);
         }
 

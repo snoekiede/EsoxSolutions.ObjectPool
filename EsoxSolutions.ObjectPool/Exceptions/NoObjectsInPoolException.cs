@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace EsoxSolutions.ObjectPool.Exceptions
 {
+    /// <summary>
+    /// Raised when no objects could be released from the pool.
+    /// </summary>
     public class NoObjectsInPoolException:Exception
     {
         public NoObjectsInPoolException(string message):base(message)

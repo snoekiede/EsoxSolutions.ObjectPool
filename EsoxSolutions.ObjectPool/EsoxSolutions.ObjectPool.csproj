@@ -4,6 +4,21 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Description>An object pool for .NET 8 with automatic return of objects</Description>
+    <Copyright>(c) 2023 </Copyright>
+    <PackageProjectUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
+    <PackageTags>objectpool;threadsafe</PackageTags>
+    <AssemblyVersion>1.0.0.1</AssemblyVersion>
+    <FileVersion>1.0.0.1</FileVersion>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>

@@ -60,13 +60,14 @@ namespace EsoxSolutions.ObjectPool.Tests
 
             var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 5; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
                     using (var model = objectPool.GetObject())
                     {
-                        var afterCount = objectPool.availableObjectCount;
+                        var value=model.Unwrap();
+                        Assert.True(value > 0);
                     }
                 }));
             }

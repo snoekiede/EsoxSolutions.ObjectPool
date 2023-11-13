@@ -37,8 +37,23 @@ An example use:
 The objectpool as you can see administers the object. In its constructor its gets a list of pre-initialized objects. The length of this list does not change.
 In case there are no more objects in the pool, an exception is raised.
 
+
+### QueryableObjectPool
+The QueryableObjectPool is a special type of ObjectPool. It has a Query method, which takes a predicate, and returns the first object in the pool that matches the predicate. If no object matches the predicate, an exception is raised.
+
+An example use:
+```
+			var initialObjects = new List<int> { 1, 2, 3 };
+			var objectPool = new QueryableObjectPool<int>(initialObjects);
+
+			using (var model = objectPool.Query(x => x == 2))
+			{
+				var value = model.Unwrap();
+				Console.WriteLine(value);
+			}
+```
 ## Future work
 One possible extension would be to have a timeout on the objects in the pool. If an object is not used for a certain amount of time, it is disposed. This would be useful in case you have a pool of database connections, and you want to make sure that the connections are not kept open for too long.
-Also it would be nice to have some sort of LINQ-query to get objects with certain values from the pool.
+
 
 

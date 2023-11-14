@@ -26,14 +26,21 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// The mutex for thread-safety
         /// </summary>
         protected Mutex mutex = new();
+
+        /// <summary>
+        /// The timeout for the mutex
+        /// </summary>
+        protected int timeOut;
         /// <summary>
         /// Constructor for the object pool
         /// </summary>
         /// <param name="initialObjects">The list of initialized objects. The number of available objects does not change during the lifetime of the object-pool.</param>
-        public ObjectPool(List<T> initialObjects)
+        /// <param name="timeOut">The timeout for the mutex</param>
+        public ObjectPool(List<T> initialObjects,int timeOut=1000)
         {
             this.activeObjects = new();
             this.availableObjects = initialObjects;
+            this.timeOut = timeOut;
         }
 
         /// <summary>
@@ -43,7 +50,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public PoolModel<T> GetObject()
         {
-            mutex.WaitOne();
+            mutex.WaitOne(this.timeOut);
             if (this.availableObjects.Count == 0)
             {
                 throw new NoObjectsInPoolException("No objects available");
@@ -63,7 +70,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            mutex.WaitOne();
+            mutex.WaitOne(this.timeOut);
             var unwrapped = obj.Unwrap();
             if (!this.activeObjects.Contains(unwrapped))
             {

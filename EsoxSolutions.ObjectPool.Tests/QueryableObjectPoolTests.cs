@@ -96,11 +96,13 @@ namespace EsoxSolutions.ObjectPool.Tests
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject(x=>x.Make=="Ford"))
-                    {
-                        var value=model.Unwrap();
-                        Assert.True(value.Make=="Ford");
-                    }
+
+                        using (var model = objectPool.GetObject(x => x.Make == "Ford"))
+                        {
+                            var value = model.Unwrap();
+                            Assert.True(value.Make == "Ford");
+                        }
+                    
                 }));
             }
             Task.WaitAll(tasks.ToArray());

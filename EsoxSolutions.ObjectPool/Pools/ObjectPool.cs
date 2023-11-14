@@ -22,10 +22,11 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// A list of active objects
         /// </summary>
         protected List<T> activeObjects;
+
         /// <summary>
-        /// The mutex for thread-safety
+        /// Simple lock object
         /// </summary>
-        protected Mutex mutex = new();
+        protected object lockObject = new();
         /// <summary>
         /// Constructor for the object pool
         /// </summary>
@@ -43,15 +44,18 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public PoolModel<T> GetObject()
         {
-            mutex.WaitOne();
-            if (this.availableObjects.Count == 0)
+            T obj;
+            
+            lock (lockObject)
             {
-                throw new NoObjectsInPoolException("No objects available");
+                if (this.availableObjects.Count == 0)
+                {
+                    throw new NoObjectsInPoolException("No objects available");
+                }
+                obj = this.availableObjects[0];
+                this.availableObjects.RemoveAt(0);
+                this.activeObjects.Add(obj);
             }
-            var obj = this.availableObjects[0];
-            this.availableObjects.RemoveAt(0);
-            this.activeObjects.Add(obj);
-            mutex.ReleaseMutex();
             return new PoolModel<T>(obj, this);
 
         }
@@ -63,15 +67,16 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            mutex.WaitOne();
-            var unwrapped = obj.Unwrap();
-            if (!this.activeObjects.Contains(unwrapped))
+            lock (lockObject)
             {
-                throw new NoObjectsInPoolException("Object not in pool");
+                var unwrapped = obj.Unwrap();
+                if (!this.activeObjects.Contains(unwrapped))
+                {
+                    throw new NoObjectsInPoolException("Object not in pool");
+                }
+                this.activeObjects.Remove(unwrapped);
+                this.availableObjects.Add(unwrapped);
             }
-            this.activeObjects.Remove(unwrapped);
-            this.availableObjects.Add(unwrapped);
-            mutex.ReleaseMutex();
         }
 
         /// <summary>

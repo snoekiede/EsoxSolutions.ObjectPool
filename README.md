@@ -55,5 +55,7 @@ An example use:
 ## Future work
 One possible extension would be to have a timeout on the objects in the pool. If an object is not used for a certain amount of time, it is disposed. This would be useful in case you have a pool of database connections, and you want to make sure that the connections are not kept open for too long.
 
-
+## Version history:
+	* 1.1.1: Added QueryableObjectPool
+	* 1.1.2: Improved threadsafety
 

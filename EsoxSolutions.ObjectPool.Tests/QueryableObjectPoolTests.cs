@@ -92,15 +92,22 @@ namespace EsoxSolutions.ObjectPool.Tests
 
             var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 10; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject(x=>x.Make=="Ford"))
+                    try
                     {
-                        var value=model.Unwrap();
-                        Assert.True(value.Make=="Ford");
+                        using (var model = objectPool.GetObject(x => x.Make == "Ford"))
+                        {
+                            var value = model.Unwrap();
+                            Assert.True(value.Make == "Ford");
+                        }
+                    } catch (Exception ex)
+                    {
+                        Assert.Equal("No objects matching the query available", ex.Message);
                     }
+                    
                 }));
             }
             Task.WaitAll(tasks.ToArray());

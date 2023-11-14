@@ -22,15 +22,6 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// A list of active objects
         /// </summary>
         protected List<T> activeObjects;
-        /// <summary>
-        /// The mutex for thread-safety
-        /// </summary>
-        protected Mutex mutex = new();
-
-        /// <summary>
-        /// The timeout for the mutex
-        /// </summary>
-        protected int timeOut;
 
         /// <summary>
         /// Simple lock object
@@ -40,12 +31,10 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// Constructor for the object pool
         /// </summary>
         /// <param name="initialObjects">The list of initialized objects. The number of available objects does not change during the lifetime of the object-pool.</param>
-        /// <param name="timeOut">The timeout for the mutex</param>
-        public ObjectPool(List<T> initialObjects,int timeOut=1000)
+        public ObjectPool(List<T> initialObjects)
         {
             this.activeObjects = new();
             this.availableObjects = initialObjects;
-            this.timeOut = timeOut;
         }
 
         /// <summary>
@@ -56,7 +45,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public PoolModel<T> GetObject()
         {
             T obj;
-            //mutex.WaitOne(this.timeOut);
+            
             lock (lockObject)
             {
                 if (this.availableObjects.Count == 0)
@@ -67,7 +56,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 this.availableObjects.RemoveAt(0);
                 this.activeObjects.Add(obj);
             }
-            //mutex.ReleaseMutex();
             return new PoolModel<T>(obj, this);
 
         }
@@ -79,7 +67,6 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            //mutex.WaitOne(this.timeOut);
             lock (lockObject)
             {
                 var unwrapped = obj.Unwrap();
@@ -89,7 +76,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 }
                 this.activeObjects.Remove(unwrapped);
                 this.availableObjects.Add(unwrapped);
-                //mutex.ReleaseMutex();
             }
         }
 

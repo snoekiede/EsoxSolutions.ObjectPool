@@ -22,14 +22,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
         }
 
-        /// <summary>
-        /// The constructor for the queryable object pool
-        /// </summary>
-        /// <param name="initialObjects">The list of initial objects</param>
-        /// <param name="timeOut">The timeout for the mutex</param>
-        public QueryableObjectPool(List<T> initialObjects, int timeOut=1000) : base(initialObjects, timeOut)
-        {
-        }
+        
 
         /// <summary>
         /// Get objects from the pool which match the query. If no objects are available, an exception is thrown.

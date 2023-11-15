@@ -42,7 +42,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         /// <returns>A PoolModel object</returns>
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
-        public PoolModel<T> GetObject()
+        public virtual PoolModel<T> GetObject()
         {
             T obj;
             

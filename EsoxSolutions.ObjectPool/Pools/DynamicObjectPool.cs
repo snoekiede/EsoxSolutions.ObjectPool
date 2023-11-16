@@ -13,7 +13,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// Queryable object pool
     /// </summary>
     /// <typeparam name="T">the type to be stored in the object pool</typeparam>
-    public class DynamicObjectPool<T> : ObjectPool<T> where T:class
+    public class DynamicObjectPool<T> : ObjectPool<T>,IObjectPool<T> where T:class
     {
         /// <summary>
         /// The factory method to be used to create new objects

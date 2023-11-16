@@ -17,7 +17,7 @@
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>version 1.0: Beta</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>1.1.2</Version>
+    <Version>1.1.4</Version>
   </PropertyGroup>
 
   <ItemGroup>

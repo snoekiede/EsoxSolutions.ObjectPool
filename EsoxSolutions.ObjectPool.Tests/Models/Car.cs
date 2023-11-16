@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EsoxSolutions.ObjectPool.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,5 +32,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Models
 
             return result;
         }
+
+        
     }
 }

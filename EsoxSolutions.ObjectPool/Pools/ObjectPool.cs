@@ -1,4 +1,5 @@
 ﻿using EsoxSolutions.ObjectPool.Exceptions;
+using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using System;
 using System.Collections.Generic;
@@ -12,7 +13,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// A threadsafe generic object pool
     /// </summary>
     /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
-    public class ObjectPool<T>
+    public class ObjectPool<T> : IObjectPool<T>
     {
         /// <summary>
         /// A list of available objects
@@ -45,7 +46,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public virtual PoolModel<T> GetObject()
         {
             T obj;
-            
+
             lock (lockObject)
             {
                 if (this.availableObjects.Count == 0)

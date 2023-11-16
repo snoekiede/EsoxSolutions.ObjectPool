@@ -65,6 +65,29 @@ namespace EsoxSolutions.ObjectPool.Tests
             var afterusingCount = objectPool.availableObjectCount;
             Assert.Equal(initialCount, afterusingCount);
         }
+
+        [Fact]
+        public void TestObjectCreation()
+        {
+            var initialObject = Car.GetInitialCars().Take(2).ToList();
+            var objectPool = new DynamicObjectPool<Car>(() => new Car("Ford", "NewCreated"), initialObject);
+            var initialCount = objectPool.availableObjectCount;
+            var tasks = new List<Task>();
+            for (int i = 0; i < 20; i++)
+            {
+                tasks.Add(Task.Run(() =>
+                {
+                    using (var model = objectPool.GetObject())
+                    {
+                        Thread.Sleep(100);
+                        var value = model.Unwrap();
+                        Assert.True(!string.IsNullOrEmpty(value.Make));
+                    }
+                }));
+            }
+            Task.WaitAll(tasks.ToArray());
+            
+        }
     }
 
     

@@ -52,10 +52,25 @@ An example use:
 				Console.WriteLine(value);
 			}
 ```
+### DynamicObjectPool
+The DynamicObjectPool is a special type of object pool, which can be used to create objects on the fly. It takes a factory method, which is used to create the objects. The factory method is called when the pool is empty, and a new object is requested.
+An example use:
+```
+			var objectPool = new DynamicObjectPool<int>(() => 1);
+
+			using (var model = objectPool.GetObject())
+			{
+				var value = model.Unwrap();
+				Console.WriteLine(value);
+			}
+```
+The constructor also takes a list of pre-initialized objects. These objects are used first, before the factory method is called.
+
 ## Future work
 One possible extension would be to have a timeout on the objects in the pool. If an object is not used for a certain amount of time, it is disposed. This would be useful in case you have a pool of database connections, and you want to make sure that the connections are not kept open for too long.
 
 ## Version history:
-	* 1.1.1: Added QueryableObjectPool
-	* 1.1.2: Improved threadsafety
+* 1.1.1: Added QueryableObjectPool
+* 1.1.2: Improved threadsafety
+* 1.1.3: Added DynamicObjectPool
 

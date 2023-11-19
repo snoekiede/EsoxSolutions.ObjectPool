@@ -1,4 +1,5 @@
-﻿using EsoxSolutions.ObjectPool.Pools;
+﻿using EsoxSolutions.ObjectPool.Interfaces;
+using EsoxSolutions.ObjectPool.Pools;
 
 namespace EsoxSolutions.ObjectPool.Models
 {
@@ -9,14 +10,14 @@ namespace EsoxSolutions.ObjectPool.Models
     public class PoolModel<T>:IDisposable
     {
         private T value;
-        private ObjectPool<T> pool;
+        private IObjectPool<T> pool;
 
         /// <summary>
         /// Constructor for the pool model
         /// </summary>
         /// <param name="value">The value to be wrapped</param>
         /// <param name="pool">The object pool to which this PoolModel belongs</param>
-        public PoolModel(T value,ObjectPool<T> pool)
+        public PoolModel(T value,IObjectPool<T> pool)
         {
             this.value = value;
             this.pool = pool;

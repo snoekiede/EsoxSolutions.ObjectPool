@@ -78,6 +78,17 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <summary>
         /// Gets the number of available objects in the pool
         /// </summary>
-        public int availableObjectCount => this.availableObjects.Count;
+        public int availableObjectCount {
+            get
+            {
+                var result = 0;
+                lock (lockObject)
+                {
+                    result = this.availableObjects.Count;
+                }
+
+                return result;
+            }
+        }
     }
 }

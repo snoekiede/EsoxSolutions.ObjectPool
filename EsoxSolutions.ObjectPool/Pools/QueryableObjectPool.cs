@@ -28,7 +28,6 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Thrown when no objects could be found</exception>
         public PoolModel<T> GetObject(Func<T, bool> query)
         {
-            //mutex.WaitOne(this.timeOut);
             lock(lockObject)
             {
                 var obj = this.availableObjects.FirstOrDefault(query);
@@ -38,7 +37,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 }
                 this.availableObjects.Remove(obj);
                 this.activeObjects.Add(obj);
-                //mutex.ReleaseMutex();
                 return new PoolModel<T>(obj, this);
             }
             

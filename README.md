@@ -73,4 +73,5 @@ One possible extension would be to have a timeout on the objects in the pool. If
 * 1.1.1: Added QueryableObjectPool
 * 1.1.2: Improved threadsafety
 * 1.1.3: Added DynamicObjectPool
+* 1.1.5: Improved thread-safety, and the dynamic object pool now throws an object if no object matches the query
 

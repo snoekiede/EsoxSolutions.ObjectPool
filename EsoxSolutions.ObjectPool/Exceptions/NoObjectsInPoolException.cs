@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace EsoxSolutions.ObjectPool.Exceptions
+﻿namespace EsoxSolutions.ObjectPool.Exceptions
 {
     /// <summary>
     /// Raised when no objects could be released from the pool.

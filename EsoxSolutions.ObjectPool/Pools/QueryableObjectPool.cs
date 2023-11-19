@@ -8,7 +8,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// Queryable object pool
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class QueryableObjectPool<T> : ObjectPool<T>,IQueryableObjectPool<T>
+    public class QueryableObjectPool<T> : ObjectPool<T>, IQueryableObjectPool<T>
     {
         /// <summary>
         /// The constructor for the queryable object pool
@@ -18,7 +18,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
         }
 
-        
+
 
         /// <summary>
         /// Get objects from the pool which match the query. If no objects are available, an exception is thrown.
@@ -28,18 +28,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Thrown when no objects could be found</exception>
         public PoolModel<T> GetObject(Func<T, bool> query)
         {
-            lock(lockObject)
-            {
-                var obj = this.availableObjects.FirstOrDefault(query);
-                if (obj == null)
-                {
-                    throw new NoObjectsInPoolException("No objects matching the query available");
-                }
-                this.availableObjects.Remove(obj);
-                this.activeObjects.Add(obj);
-                return new PoolModel<T>(obj, this);
-            }
             
+            lock (lockObject)
+            {
+
+                var result = this.availableObjects.FirstOrDefault(query);
+                if ((result == null) || (result.Equals(default(T))))
+                {
+                    throw new NoObjectsInPoolException("No objects in pool matching your query");
+                }
+
+                this.availableObjects.Remove(result);
+                this.activeObjects.Add(result);
+                return new PoolModel<T>(result, this);
+
+            }
+
         }
     }
 

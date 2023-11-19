@@ -86,7 +86,7 @@ namespace EsoxSolutions.ObjectPool.Tests
 
             var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 3; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {

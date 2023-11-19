@@ -35,9 +35,8 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new ObjectPool<int>(initialObjects);
-
-            var initialCount = objectPool.availableObjectCount;
-            using (var model = objectPool.GetObject())
+            var initialCount=objectPool.availableObjectCount;
+            using (var _ = objectPool.GetObject())
             {
                 var afterCount = objectPool.availableObjectCount;
                 Assert.Equal(3, initialCount);

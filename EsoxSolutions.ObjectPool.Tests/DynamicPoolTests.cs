@@ -10,13 +10,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             var initialObjects = Car.GetInitialCars();
             var objectPool = new DynamicObjectPool<Car>(initialObjects);
-
-            var initialCount = objectPool.availableObjectCount;
             var model = objectPool.GetObject();
-            var afterCount = objectPool.availableObjectCount;
-
-            
-            
             Assert.NotNull(model);
         }
 

@@ -30,7 +30,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var objectPool = new QueryableObjectPool<int>(initialObjects);
 
             var initialCount = objectPool.availableObjectCount;
-            using (var model = objectPool.GetObject())
+            using (var _ = objectPool.GetObject())
             {
                 var afterCount = objectPool.availableObjectCount;
                 Assert.Equal(3, initialCount);
@@ -46,15 +46,14 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
             var objectPool = new ObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
             for (int i = 0; i < 10; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject())
+                    using (var _ = objectPool.GetObject())
                     {
-                        var afterCount = objectPool.availableObjectCount;
+                        var unused = objectPool.availableObjectCount;
                     }
                 }));
             }

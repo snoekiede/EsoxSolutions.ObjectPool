@@ -81,7 +81,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public int availableObjectCount {
             get
             {
-                var result = 0;
+                int result;
                 lock (lockObject)
                 {
                     result = this.availableObjects.Count;

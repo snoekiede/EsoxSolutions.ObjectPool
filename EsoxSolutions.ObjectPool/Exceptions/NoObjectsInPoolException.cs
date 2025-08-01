@@ -1,35 +1,32 @@
 ﻿namespace EsoxSolutions.ObjectPool.Exceptions
 {
     /// <summary>
-    /// Raised when no objects could be released from the pool.
+    /// Raised when no objects could be retrieved from the pool.
     /// </summary>
-    public class NoObjectsInPoolException:Exception
+    public class NoObjectsInPoolException : Exception
     {
         /// <summary>
-        /// Constructor for exception
+        /// Constructor for exception with custom message
         /// </summary>
-        /// <param name="message">The exception exception</param>
-        public NoObjectsInPoolException(string message):base(message)
+        /// <param name="message">The exception message</param>
+        public NoObjectsInPoolException(string message) : base(message)
         {
         }
 
         /// <summary>
-        /// Constructor for exception
+        /// Constructor for exception with message and inner exception
         /// </summary>
-        /// <param name="message">the exception message</param>
-        /// <param name="innerException">the inner exception</param>
-        public NoObjectsInPoolException(string message, Exception innerException):base(message, innerException)
+        /// <param name="message">The exception message</param>
+        /// <param name="innerException">The inner exception</param>
+        public NoObjectsInPoolException(string message, Exception innerException) : base(message, innerException)
         {
         }
 
         /// <summary>
-        /// Empty constructor
+        /// Default constructor with standard message
         /// </summary>
-        public NoObjectsInPoolException():base()
+        public NoObjectsInPoolException() : base("No objects are available in the pool")
         {
         }
-
-        
-
     }
 }

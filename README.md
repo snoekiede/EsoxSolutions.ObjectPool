@@ -2,76 +2,124 @@
 
 ## Overview
 
-Sometimes, for reasons of efficiency, it can be quite handy to keep a pool, that is non-empty set, of initialized objects ready. This can be the case in for instance when you have database connections, which are expensive to create both in time and resources.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+ and .NET 9. It supports automatic return of objects, async operations, health monitoring, performance metrics, and flexible configuration. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
-What you do is that make a pool of objects, usually an array, and you have one object managing that array, giving out objects, and returning, basically doing the bookkeeping.
+## Features
+    
+- Thread-safe object pooling
+- Automatic return of objects (via IDisposable)
+- Async support (`GetObjectAsync`, `TryGetObjectAsync`)
+- Queryable and dynamic pools
+- Health monitoring and status
+- Performance metrics (exportable, Prometheus format)
+- Pool configuration (max size, validation, etc.)
+- Try* methods for safe retrieval
+- Multithreaded and high-performance (Stack/HashSet)
 
-This is a very simple implementation of such a pool, which is thread safe, and can be used in a multi-threaded environment.
-
-**Caveat**: I consider this version to be still in beta. If you find any bugs, please report them to me, or mail me at [info@esoxsolutions.nl](info@esoxsolutions.nl)
 ## Usage
 
-There are two main classes:
-
-1. The PoolModel class which holds an object in a pool.
-2. The ObjectPool which releases and returns the PoolModel objects.
-
 ### PoolModel
-The PoolModel is a generic class. It takes a type parameter, which is the type of the object you want to pool. 
-To get the value stored in the PoolModel, use the Unwrap method.
+A generic wrapper for pooled objects. Use `Unwrap()` to access the value.
 
-An example use:
+```csharp
+var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+using (var model = pool.GetObject())
+{
+    var value = model.Unwrap();
+    Console.WriteLine(value);
+}
 ```
-            var initialObjects = new List<int> { 1, 2, 3 };
-            var objectPool = new ObjectPool<int>(initialObjects);
-
-            using (var model = objectPool.GetObject())
-            {
-                var value = model.Unwrap();
-				Console.WriteLine(value);
-            }
-```
-
 
 ### ObjectPool
-The objectpool as you can see administers the object. In its constructor its gets a list of pre-initialized objects. The length of this list does not change.
-In case there are no more objects in the pool, an exception is raised.
+Administers a fixed set of objects. Throws if pool is empty.
 
+```csharp
+var initialObjects = new List<int> { 1, 2, 3 };
+var pool = new ObjectPool<int>(initialObjects);
+using (var model = pool.GetObject())
+{
+    Console.WriteLine(model.Unwrap());
+}
+```
+
+#### Async Usage
+```csharp
+using (var model = await pool.GetObjectAsync())
+{
+    Console.WriteLine(model.Unwrap());
+}
+```
+
+#### Try Methods
+```csharp
+if (pool.TryGetObject(out var model))
+{
+    using (model)
+    {
+        Console.WriteLine(model.Unwrap());
+    }
+}
+```
+
+#### Pool Configuration
+```csharp
+var config = new PoolConfiguration {
+    MaxPoolSize = 5,
+    MaxActiveObjects = 3,
+    ValidateOnReturn = true,
+    ValidationFunction = obj => obj != null
+};
+var pool = new ObjectPool<int>(initialObjects, config);
+```
 
 ### QueryableObjectPool
-The QueryableObjectPool is a special type of ObjectPool. It has a Query method, which takes a predicate, and returns the first object in the pool that matches the predicate. If no object matches the predicate, an exception is raised.
+Query for objects matching a predicate.
 
-An example use:
+```csharp
+var pool = new QueryableObjectPool<int>(new List<int> { 1, 2, 3 });
+using (var model = pool.GetObject(x => x == 2))
+{
+    Console.WriteLine(model.Unwrap());
+}
 ```
-			var initialObjects = new List<int> { 1, 2, 3 };
-			var objectPool = new QueryableObjectPool<int>(initialObjects);
 
-			using (var model = objectPool.GetObject(x => x == 2))
-			{
-				var value = model.Unwrap();
-				Console.WriteLine(value);
-			}
-```
 ### DynamicObjectPool
-The DynamicObjectPool is a special type of object pool, which can be used to create objects on the fly. It takes a factory method, which is used to create the objects. The factory method is called when the pool is empty, and a new object is requested.
-An example use:
-```
-			var objectPool = new DynamicObjectPool<int>(() => 1);
+Creates objects on the fly using a factory method.
 
-			using (var model = objectPool.GetObject())
-			{
-				var value = model.Unwrap();
-				Console.WriteLine(value);
-			}
+```csharp
+var pool = new DynamicObjectPool<int>(() => 42);
+using (var model = pool.GetObject())
+{
+    Console.WriteLine(model.Unwrap());
+}
 ```
-The constructor also takes a list of pre-initialized objects. These objects are used first, before the factory method is called.
 
-## Future work
-One possible extension would be to have a timeout on the objects in the pool. If an object is not used for a certain amount of time, it is disposed. This would be useful in case you have a pool of database connections, and you want to make sure that the connections are not kept open for too long.
+### Health Monitoring & Metrics
+
+```csharp
+var health = pool.GetHealthStatus();
+Console.WriteLine($"Healthy: {health.IsHealthy}, Warnings: {health.WarningCount}");
+
+var metrics = pool.ExportMetrics();
+foreach (var kv in metrics)
+    Console.WriteLine($"{kv.Key}: {kv.Value}");
+
+var prometheus = pool.ExportPrometheusMetrics();
+Console.WriteLine(prometheus);
+```
 
 ## Version history:
-* 1.1.1: Added QueryableObjectPool
-* 1.1.2: Improved threadsafety
+* 2.0.0: Async support, performance metrics, Try* methods, Prometheus metrics, improved performance
+* 1.1.5: Improved thread-safety, dynamic pool throws if no match
 * 1.1.3: Added DynamicObjectPool
-* 1.1.5: Improved thread-safety, and the dynamic object pool now throws an object if no object matches the query
+* 1.1.2: Improved threadsafety
+* 1.1.1: Added QueryableObjectPool
+
+## Future work
+- Timeout/disposal for idle objects
+- More advanced health checks
+- Integration with dependency injection
+
+---
+For bug reports or suggestions, contact [info@esoxsolutions.nl](info@esoxsolutions.nl)
 

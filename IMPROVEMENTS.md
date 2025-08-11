@@ -1,4 +1,3 @@
-<!-- ...existing content... -->
 
 ### 9. Production-Ready Features
 - **Configuration Management**: Added PoolConfiguration class for production settings

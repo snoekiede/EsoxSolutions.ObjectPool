@@ -5,7 +5,7 @@ using EsoxSolutions.ObjectPool.Models;
 namespace EsoxSolutions.ObjectPool.Pools
 {
     /// <summary>
-    /// Queryable object pool
+    /// Dynamic object pool that can create new objects using a factory method when the pool is empty
     /// </summary>
     /// <typeparam name="T">the type to be stored in the object pool</typeparam>
     public class DynamicObjectPool<T> : ObjectPool<T>,IObjectPool<T> where T:class
@@ -54,16 +54,14 @@ namespace EsoxSolutions.ObjectPool.Pools
             {
                 if (this.availableObjects.Count == 0)
                 {
-                    obj= this.factory?.Invoke();
+                    obj = this.factory?.Invoke();
                     if (obj == null)
                     {
                         throw new NoObjectsInPoolException("No objects available");
                     }
-                    availableObjects.Add(obj);
-
+                    this.availableObjects.Push(obj);
                 }
-                obj = this.availableObjects[0];
-                this.availableObjects.RemoveAt(0);
+                obj = this.availableObjects.Pop();
                 this.activeObjects.Add(obj);
             }
             return new PoolModel<T>(obj, this);

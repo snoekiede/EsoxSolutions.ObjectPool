@@ -14,9 +14,9 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new QueryableObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
+            var initialCount = objectPool.AvailableObjectCount;
             var model = objectPool.GetObject();
-            var afterCount = objectPool.availableObjectCount;
+            var afterCount = objectPool.AvailableObjectCount;
 
             Assert.Equal(3, initialCount);
             Assert.Equal(2, afterCount);
@@ -29,14 +29,14 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new QueryableObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
+            var initialCount = objectPool.AvailableObjectCount;
             using (var _ = objectPool.GetObject())
             {
-                var afterCount = objectPool.availableObjectCount;
+                var afterCount = objectPool.AvailableObjectCount;
                 Assert.Equal(3, initialCount);
                 Assert.Equal(2, afterCount);
             }
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(3, afterusingCount);
         }
 
@@ -51,14 +51,12 @@ namespace EsoxSolutions.ObjectPool.Tests
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var _ = objectPool.GetObject())
-                    {
-                        var unused = objectPool.availableObjectCount;
-                    }
+                    using var _ = objectPool.GetObject();
+                    var unused = objectPool.AvailableObjectCount;
                 }));
             }
             Task.WaitAll(tasks.ToArray());
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(11, afterusingCount);
         }
 
@@ -68,9 +66,9 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = Car.GetInitialCars();
             var objectPool = new QueryableObjectPool<Car>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
+            var initialCount = objectPool.AvailableObjectCount;
             var model = objectPool.GetObject(x => x.Make == "Ford");
-            var afterCount = objectPool.availableObjectCount;
+            var afterCount = objectPool.AvailableObjectCount;
 
             Assert.Equal(7, initialCount);
             Assert.Equal(6, afterCount);
@@ -84,7 +82,6 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = Car.GetInitialCars();
             var objectPool = new QueryableObjectPool<Car>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
             for (int i = 0; i < 3; i++)
             {
@@ -92,11 +89,9 @@ namespace EsoxSolutions.ObjectPool.Tests
                 {
                     try
                     {
-                        using (var model = objectPool.GetObject(x => x.Make == "Ford"))
-                        {
-                            var value = model.Unwrap();
-                            Assert.True(value.Make == "Ford");
-                        }
+                        using var model = objectPool.GetObject(x => x.Make == "Ford");
+                        var value = model.Unwrap();
+                        Assert.True(value.Make == "Ford");
                     } catch (Exception ex)
                     {
                         Assert.Equal("No objects matching the query available", ex.Message);
@@ -105,7 +100,7 @@ namespace EsoxSolutions.ObjectPool.Tests
                 }));
             }
             Task.WaitAll(tasks.ToArray());
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(7, afterusingCount);
         }
     }

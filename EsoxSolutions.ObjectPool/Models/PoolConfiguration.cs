@@ -36,7 +36,7 @@ namespace EsoxSolutions.ObjectPool.Models
         public bool EnableDetailedStatistics { get; set; } = true;
 
         /// <summary>
-        /// How often to cleanup expired objects (default: 5 minutes)
+        /// How often to clean up expired objects (default: 5 minutes)
         /// </summary>
         public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromMinutes(5);
 

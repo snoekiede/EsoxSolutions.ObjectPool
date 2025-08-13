@@ -20,14 +20,14 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = Car.GetInitialCars();
             var objectPool = new DynamicObjectPool<Car>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
-            using (var model = objectPool.GetObject())
+            var initialCount = objectPool.AvailableObjectCount;
+            using (objectPool.GetObject())
             {
-                var afterCount = objectPool.availableObjectCount;
+                var afterCount = objectPool.AvailableObjectCount;
                 Assert.Equal(7, initialCount);
                 Assert.Equal(6, afterCount);
             }
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(initialCount, afterusingCount);
         }
 
@@ -37,21 +37,19 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = Car.GetInitialCars();
             var objectPool = new DynamicObjectPool<Car>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
+            var initialCount = objectPool.AvailableObjectCount;
             var tasks = new List<Task>();
             for (int i = 0; i < 10; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject())
-                    {
-                        var value = model.Unwrap();
-                        Assert.True(!string.IsNullOrEmpty(value.Make));
-                    }
+                    using var model = objectPool.GetObject();
+                    var value = model.Unwrap();
+                    Assert.True(!string.IsNullOrEmpty(value.Make));
                 }));
             }
             Task.WaitAll(tasks.ToArray());
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(initialCount, afterusingCount);
         }
 
@@ -60,18 +58,15 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             var initialObject = Car.GetInitialCars().Take(2).ToList();
             var objectPool = new DynamicObjectPool<Car>(() => new Car("Ford", "NewCreated"), initialObject);
-            var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
             for (int i = 0; i < 20; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject())
-                    {
-                        Thread.Sleep(100);
-                        var value = model.Unwrap();
-                        Assert.True(!string.IsNullOrEmpty(value.Make));
-                    }
+                    using var model = objectPool.GetObject();
+                    Thread.Sleep(100);
+                    var value = model.Unwrap();
+                    Assert.True(!string.IsNullOrEmpty(value.Make));
                 }));
             }
             Task.WaitAll(tasks.ToArray());

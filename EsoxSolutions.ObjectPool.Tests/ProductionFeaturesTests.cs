@@ -1,18 +1,10 @@
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
-using Microsoft.Extensions.Logging;
-using Xunit.Abstractions;
 
 namespace EsoxSolutions.ObjectPool.Tests
 {
     public class ProductionFeaturesTests
     {
-        private readonly ITestOutputHelper output;
-
-        public ProductionFeaturesTests(ITestOutputHelper output)
-        {
-            this.output = output;
-        }
 
         [Fact]
         public void TestPoolConfiguration()
@@ -22,13 +14,13 @@ namespace EsoxSolutions.ObjectPool.Tests
                 MaxPoolSize = 5,
                 MaxActiveObjects = 3,
                 ValidateOnReturn = true,
-                ValidationFunction = obj => obj != null
+                ValidationFunction = _ => true
             };
 
             var initialObjects = new List<int> { 1, 2, 3, 4, 5 };
             var pool = new ObjectPool<int>(initialObjects, config);
 
-            Assert.Equal(5, pool.availableObjectCount);
+            Assert.Equal(5, pool.AvailableObjectCount);
         }
 
         [Fact]
@@ -163,7 +155,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             Assert.Null(obj2);
 
             // Clean up
-            obj1?.Dispose();
+            obj1.Dispose();
         }
 
         [Fact]
@@ -219,7 +211,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             // Get the only object
             using var obj1 = pool.GetObject();
 
-            // This should timeout quickly due to configuration
+            // This should time out quickly due to configuration
             await Assert.ThrowsAsync<TimeoutException>(async () =>
             {
                 await pool.GetObjectAsync(); // Uses default timeout from config

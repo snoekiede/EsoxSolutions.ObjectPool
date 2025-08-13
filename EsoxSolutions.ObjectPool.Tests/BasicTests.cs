@@ -8,7 +8,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         [Fact]
         public void CreatePoolModel()
         {
-            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+            var pool = new ObjectPool<int>([1, 2, 3]);
             var model = new PoolModel<int>(1, pool);
 
             Assert.NotNull(model);
@@ -21,9 +21,9 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new ObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
+            var initialCount = objectPool.AvailableObjectCount;
             var model = objectPool.GetObject();
-            var afterCount = objectPool.availableObjectCount;
+            var afterCount = objectPool.AvailableObjectCount;
 
             Assert.Equal(3, initialCount);
             Assert.Equal(2, afterCount);
@@ -35,14 +35,14 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             var initialObjects = new List<int> { 1, 2, 3 };
             var objectPool = new ObjectPool<int>(initialObjects);
-            var initialCount=objectPool.availableObjectCount;
+            var initialCount=objectPool.AvailableObjectCount;
             using (var _ = objectPool.GetObject())
             {
-                var afterCount = objectPool.availableObjectCount;
+                var afterCount = objectPool.AvailableObjectCount;
                 Assert.Equal(3, initialCount);
                 Assert.Equal(2, afterCount);
             }
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(3, afterusingCount);
         }
 
@@ -52,21 +52,18 @@ namespace EsoxSolutions.ObjectPool.Tests
             var initialObjects = new List<int> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
             var objectPool = new ObjectPool<int>(initialObjects);
 
-            var initialCount = objectPool.availableObjectCount;
             var tasks = new List<Task>();
             for (int i = 0; i < 10; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
-                    using (var model = objectPool.GetObject())
-                    {
-                        var value=model.Unwrap();
-                        Assert.True(value > 0);
-                    }
+                    using var model = objectPool.GetObject();
+                    var value=model.Unwrap();
+                    Assert.True(value > 0);
                 }));
             }
             Task.WaitAll(tasks.ToArray());
-            var afterusingCount = objectPool.availableObjectCount;
+            var afterusingCount = objectPool.AvailableObjectCount;
             Assert.Equal(11, afterusingCount);
         }
 

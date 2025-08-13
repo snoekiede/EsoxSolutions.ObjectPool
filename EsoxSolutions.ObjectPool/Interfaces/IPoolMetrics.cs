@@ -5,10 +5,6 @@ namespace EsoxSolutions.ObjectPool.Interfaces
     /// </summary>
     public interface IPoolMetrics
     {
-        /// <summary>
-        /// Export metrics in a format suitable for monitoring systems
-        /// </summary>
-        Dictionary<string, object> ExportMetrics();
 
         /// <summary>
         /// Export metrics with tags/labels for dimensional monitoring

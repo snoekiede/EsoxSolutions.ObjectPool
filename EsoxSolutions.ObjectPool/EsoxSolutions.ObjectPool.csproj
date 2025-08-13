@@ -5,19 +5,24 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Description>An object pool for .NET 8+ with automatic return of objects, async support, and performance metrics</Description>
-    <Copyright>(c) 2023 Esox Solutions</Copyright>
+    <Copyright>(c) 2025 Esox Solutions</Copyright>
     <PackageProjectUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
     <PackageTags>objectpool;threadsafe;async;performance;metrics</PackageTags>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <FileVersion>2.0.0.0</FileVersion>
+    <AssemblyVersion>2.0.0.1</AssemblyVersion>
+    <FileVersion>2.0.0.1</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Threadsafe Object pool for .NET with Async Support</Title>
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>version 2.0: Added async support, performance metrics, Try* methods, improved performance with Stack/HashSet</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>2.0.0</Version>
+    <Version>2.0.1</Version>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>C:\temp\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <IncludeSymbols>True</IncludeSymbols>
+    <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <ItemGroup>

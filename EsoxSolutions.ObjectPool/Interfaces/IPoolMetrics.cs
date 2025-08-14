@@ -16,9 +16,6 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         /// </summary>
         void ResetMetrics();
 
-        /// <summary>
-        /// Get metrics in Prometheus format
-        /// </summary>
-        string ExportPrometheusMetrics(string metricPrefix = "objectpool");
+
     }
 }

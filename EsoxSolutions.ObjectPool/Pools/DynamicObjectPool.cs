@@ -1,5 +1,5 @@
-﻿using EsoxSolutions.ObjectPool.Exceptions;
-using EsoxSolutions.ObjectPool.Interfaces;
+﻿using EsoxSolutions.ObjectPool.Constants;
+using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
 
 namespace EsoxSolutions.ObjectPool.Pools
@@ -48,24 +48,24 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Thrown if no object could be found</exception>
         public override PoolModel<T> GetObject()
         {
-            T? obj;
+            T? result;
 
             // No lock needed, use concurrent collections
             if (this.AvailableObjects.IsEmpty)
             {
-                obj = this._factory?.Invoke();
-                if (obj == null)
+                result = this._factory?.Invoke();
+                if (result == null)
                 {
-                    throw new NoObjectsInPoolException("No objects available");
+                    throw new NoObjectsInPoolException(PoolConstants.Messages.NoAvailableObjects);
                 }
-                this.AvailableObjects.Push(obj);
+                this.AvailableObjects.Push(result);
             }
-            if (!this.AvailableObjects.TryPop(out obj!))
+            if (!this.AvailableObjects.TryPop(out result!))
             {
-                throw new NoObjectsInPoolException("No objects available");
+                throw new NoObjectsInPoolException(PoolConstants.Messages.NoAvailableObjects);
             }
-            this.ActiveObjects.TryAdd(obj, 0);
-            return new PoolModel<T>(obj, this);
+            this.ActiveObjects.TryAdd(result, 0);
+            return new PoolModel<T>(result, this);
         }
     }
 }

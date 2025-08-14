@@ -21,7 +21,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             
             // Act & Assert - Create a cancellation token and cancel it
             var cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
             
             // This should throw due to cancellation
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
@@ -55,10 +55,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var obj = pool.GetObject();
             
             // Start a task to get another object (will wait)
-            var getTask = Task.Run(async () => 
-            {
-                return await pool.GetObjectAsync(TimeSpan.FromSeconds(2));
-            });
+            var getTask = Task.Run(async () => await pool.GetObjectAsync(TimeSpan.FromSeconds(2)));
             
             // Return the first object after a delay
             await Task.Delay(100);
@@ -80,7 +77,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var config = new PoolConfiguration
             {
                 ValidateOnReturn = true,
-                ValidationFunction = (object obj) => 
+                ValidationFunction = obj => 
                 {
                     validationCalled = true;
                     return (int)obj > 5; // Only values > 5 are valid
@@ -91,7 +88,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var pool = new ObjectPool<int>(initialObjects, config);
             
             // Act - Get object and return
-            using (var obj = pool.GetObject())
+            using (pool.GetObject())
             {
                 // No validation happens on get
             }
@@ -108,14 +105,14 @@ namespace EsoxSolutions.ObjectPool.Tests
             var config = new PoolConfiguration
             {
                 ValidateOnReturn = true,
-                ValidationFunction = (object obj) => (int)obj > 5 // Only values > 5 are valid
+                ValidationFunction = obj => (int)obj > 5 // Only values > 5 are valid
             };
             
             var initialObjects = new List<int> { 3 }; // Invalid from the start
             var pool = new ObjectPool<int>(initialObjects, config);
             
             // Act - Get object and return
-            using (var obj = pool.GetObject())
+            using (pool.GetObject())
             {
                 // No validation happens on get
             }
@@ -140,7 +137,7 @@ namespace EsoxSolutions.ObjectPool.Tests
                 x => x.Log(
                     It.IsAny<LogLevel>(),
                     It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => v != null && v.ToString()!.Contains("ObjectPool created")),
+                    It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("ObjectPool created")),
                     It.IsAny<Exception?>(),
                     It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
                 Times.Once);
@@ -343,22 +340,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             Assert.Null(result);
         }
 
-        [Fact]
-        public void TestPrometheusMetricsFormat()
-        {
-            // Arrange
-            var initialObjects = new List<int> { 1, 2, 3 };
-            var pool = new ObjectPool<int>(initialObjects);
-            
-            // Act
-            var prometheusMetrics = pool.ExportPrometheusMetrics("test_prefix");
-            
-            // Assert
-            Assert.Contains("# HELP test_prefix_pool_objects_retrieved_total", prometheusMetrics);
-            Assert.Contains("# TYPE test_prefix_pool_objects_retrieved_total counter", prometheusMetrics);
-            Assert.Contains("test_prefix_pool_objects_available_current 3", prometheusMetrics);
-            Assert.Contains("test_prefix_pool_health_status 1", prometheusMetrics);
-        }
+
 
         [Fact]
         public void TestExportMetricsWithTags()
@@ -385,7 +367,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestEmptyInitialObjectsList()
         {
             // Arrange & Act
-            var pool = new ObjectPool<int>(new List<int>());
+            var pool = new ObjectPool<int>([]);
             
             // Assert
             Assert.Equal(0, pool.AvailableObjectCount);
@@ -396,7 +378,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestPoolModelDisposalBehavior()
         {
             // Arrange
-            var pool = new ObjectPool<int>(new List<int> { 1 });
+            var pool = new ObjectPool<int>([1]);
             var model = pool.GetObject();
             
             // Act

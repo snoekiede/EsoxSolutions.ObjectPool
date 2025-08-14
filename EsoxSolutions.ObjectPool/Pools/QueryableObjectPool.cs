@@ -58,7 +58,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public virtual PoolModel<T> GetObject()
         {
-            T obj;
+            T result;
 
             lock (LockObject)
             {
@@ -66,11 +66,11 @@ namespace EsoxSolutions.ObjectPool.Pools
                 {
                     throw new NoObjectsInPoolException("No objects available");
                 }
-                obj = this.AvailableObjects[^1];
+                result = this.AvailableObjects[^1];
                 this.AvailableObjects.RemoveAt(this.AvailableObjects.Count - 1);
-                this.ActiveObjects.Add(obj);
+                this.ActiveObjects.Add(result);
             }
-            return new PoolModel<T>(obj, this);
+            return new PoolModel<T>(result, this);
         }
 
         /// <summary>

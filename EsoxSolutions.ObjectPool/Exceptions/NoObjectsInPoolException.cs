@@ -1,4 +1,6 @@
-﻿namespace EsoxSolutions.ObjectPool.Exceptions
+﻿using EsoxSolutions.ObjectPool.Constants;
+
+namespace EsoxSolutions.ObjectPool.Exceptions
 {
     /// <summary>
     /// Raised when no objects could be retrieved from the pool.
@@ -25,8 +27,10 @@
         /// <summary>
         /// Default constructor with standard message
         /// </summary>
-        public NoObjectsInPoolException() : base("No objects are available in the pool")
+        public NoObjectsInPoolException() : base(PoolConstants.Messages.NoAvailableObjects)
         {
         }
+
+
     }
 }

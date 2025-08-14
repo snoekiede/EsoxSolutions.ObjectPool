@@ -104,8 +104,7 @@ var metrics = pool.ExportMetrics();
 foreach (var kv in metrics)
     Console.WriteLine($"{kv.Key}: {kv.Value}");
 
-var prometheus = pool.ExportPrometheusMetrics();
-Console.WriteLine(prometheus);
+
 ```
 
 ## Version history:

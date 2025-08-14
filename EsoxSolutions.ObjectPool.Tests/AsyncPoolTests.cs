@@ -48,7 +48,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             
             // Act & Assert
             var cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
                 await pool.GetObjectAsync(cancellationToken: cts.Token));
         }

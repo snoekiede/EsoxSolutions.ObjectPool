@@ -18,8 +18,8 @@ namespace EsoxSolutions.ObjectPool.Tests
             var pool = new ObjectPool<int>(initialObjects, config);
             
             // Act - Create and return more objects than the pool size
-            using (var obj1 = pool.GetObject())
-            using (var obj2 = pool.GetObject())
+            using (pool.GetObject())
+            using (pool.GetObject())
             {
                 // Remove 2 objects, leaving 1 in pool
             }
@@ -90,7 +90,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestEmptyInitialObjectsList()
         {
             // Arrange & Act
-            var pool = new ObjectPool<int>(new List<int>());
+            var pool = new ObjectPool<int>([]);
             
             // Assert
             Assert.Equal(0, pool.AvailableObjectCount);

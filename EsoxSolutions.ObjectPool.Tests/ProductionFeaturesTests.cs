@@ -78,20 +78,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             Assert.Equal(1, metrics["pool_objects_available_current"]);
         }
 
-        [Fact]
-        public void TestPrometheusMetrics()
-        {
-            var initialObjects = new List<int> { 1, 2, 3 };
-            var pool = new ObjectPool<int>(initialObjects);
-
-            using var obj = pool.GetObject();
-
-            var prometheusMetrics = pool.ExportPrometheusMetrics("test_pool");
-
-            Assert.Contains("# HELP test_pool_pool_objects_retrieved_total", prometheusMetrics);
-            Assert.Contains("# TYPE test_pool_pool_objects_retrieved_total counter", prometheusMetrics);
-            Assert.Contains("test_pool_pool_objects_retrieved_total 1", prometheusMetrics);
-        }
+        
 
         [Fact]
         public void TestMetricsReset()
@@ -351,7 +338,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestExportMetricsWithTags()
         {
             // Test exporting metrics with tags
-            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+            var pool = new ObjectPool<int>([1, 2, 3]);
             
             var tags = new Dictionary<string, string>
             {
@@ -370,14 +357,14 @@ namespace EsoxSolutions.ObjectPool.Tests
         public async Task TestAsyncCancellation()
         {
             // Test cancellation in GetObjectAsync
-            var pool = new ObjectPool<int>(new List<int> { 1 });
+            var pool = new ObjectPool<int>([1]);
             
             // Get the only object to make pool empty
             using var obj = pool.GetObject();
             
             // Create a cancellation token and cancel it
             var cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
             
             // This should throw due to cancellation
             await Assert.ThrowsAsync<OperationCanceledException>(async () =>
@@ -388,16 +375,13 @@ namespace EsoxSolutions.ObjectPool.Tests
         public async Task TestAsyncEventualSuccess()
         {
             // Test GetObjectAsync eventually succeeding
-            var pool = new ObjectPool<int>(new List<int> { 1 });
+            var pool = new ObjectPool<int>([1]);
             
             // Get the only object
             var obj = pool.GetObject();
             
             // Start a task to get an object with enough timeout
-            var getTask = Task.Run(async () =>
-            {
-                return await pool.GetObjectAsync(TimeSpan.FromSeconds(2));
-            });
+            var getTask = Task.Run(async () => await pool.GetObjectAsync(TimeSpan.FromSeconds(2)));
             
             // Wait a bit then return the first object
             await Task.Delay(100);
@@ -413,7 +397,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestPoolHealthStatusDetails()
         {
             // Test health status diagnostic details
-            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+            var pool = new ObjectPool<int>([1, 2, 3]);
             
             // Get all objects to generate warnings
             var obj1 = pool.GetObject();

@@ -1,7 +1,6 @@
 ﻿using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
-using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.Tests
 {
@@ -73,7 +72,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestEmptyPool()
         {
             // Test getting from an empty pool
-            var objectPool = new ObjectPool<int>(new List<int>());
+            var objectPool = new ObjectPool<int>([]);
             
             // Should throw when getting from empty pool
             Assert.Throws<NoObjectsInPoolException>(() => objectPool.GetObject());
@@ -83,7 +82,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestTryGetObjectEmptyPool()
         {
             // Test TryGetObject with empty pool
-            var objectPool = new ObjectPool<int>(new List<int>());
+            var objectPool = new ObjectPool<int>([]);
             
             bool result = objectPool.TryGetObject(out var model);
             
@@ -95,7 +94,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestAccessDisposedPoolModel()
         {
             // Test accessing a disposed pool model
-            var pool = new ObjectPool<int>(new List<int> { 1 });
+            var pool = new ObjectPool<int>([1]);
             var model = pool.GetObject();
             
             // Dispose the model
@@ -116,14 +115,14 @@ namespace EsoxSolutions.ObjectPool.Tests
             
             // This should throw because initial objects > max pool size
             Assert.Throws<ArgumentException>(() => 
-                new ObjectPool<int>(new List<int> { 1, 2, 3 }, config));
+                new ObjectPool<int>([1, 2, 3], config));
         }
 
         [Fact]
         public async Task TestAsyncGetObject()
         {
             // Test basic async retrieval
-            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 });
+            var pool = new ObjectPool<int>([1, 2, 3]);
             
             var model = await pool.GetObjectAsync();
             
@@ -138,7 +137,7 @@ namespace EsoxSolutions.ObjectPool.Tests
         {
             // Test MaxActiveObjects limit
             var config = new PoolConfiguration { MaxActiveObjects = 2 };
-            var pool = new ObjectPool<int>(new List<int> { 1, 2, 3 }, config);
+            var pool = new ObjectPool<int>([1, 2, 3], config);
             
             // Get up to the limit
             var obj1 = pool.GetObject();
@@ -161,13 +160,13 @@ namespace EsoxSolutions.ObjectPool.Tests
             var config = new PoolConfiguration 
             { 
                 ValidateOnReturn = true,
-                ValidationFunction = obj => {
+                ValidationFunction = _ => {
                     validationCalled = true;
                     return true;
                 }
             };
             
-            var pool = new ObjectPool<int>(new List<int> { 1 }, config);
+            var pool = new ObjectPool<int>([1], config);
             
             // Get and return an object
             var model = pool.GetObject();
@@ -181,8 +180,8 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void TestReturnInvalidObject()
         {
             // Test returning an object not from this pool
-            var pool1 = new ObjectPool<int>(new List<int> { 1 });
-            var pool2 = new ObjectPool<int>(new List<int> { 2 });
+            var pool1 = new ObjectPool<int>([1]);
+            var pool2 = new ObjectPool<int>([2]);
             
             var model = new PoolModel<int>(3, pool1);
             

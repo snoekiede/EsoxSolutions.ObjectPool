@@ -10,7 +10,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// A threadsafe generic object pool
     /// </summary>
     /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
-    public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable
+    public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable where T : notnull
     {
         /// <summary>
         /// A concurrent stack of available objects for efficient O(1) operations

@@ -11,18 +11,29 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: 9.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Create the directory and decode the key file
+      - name: Provide strong-name key
+        env:
+          SNK_KEY_BASE64: ${{ secrets.SNK_KEY_BASE64 }}
+        run: |
+          mkdir C:\temp\
+          [IO.File]::WriteAllBytes("C:\temp\EsoxSolutions.ObjectPool.snk", [Convert]::FromBase64String("$($env:SNK_KEY_BASE64)"))
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Or '9.0.x' if your project targets .NET 9.0
+
+      - name: Build with dotnet
+        run: dotnet build --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal

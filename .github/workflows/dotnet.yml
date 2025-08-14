@@ -21,7 +21,7 @@ jobs:
         env:
           SNK_KEY_BASE64: ${{ secrets.SNK_KEY_BASE64 }}
         run: |
-          mkdir C:\temp\
+          mkdir C:\temp\ -Force
           [IO.File]::WriteAllBytes("C:\temp\EsoxSolutions.ObjectPool.snk", [Convert]::FromBase64String("$($env:SNK_KEY_BASE64)"))
 
       - name: Setup .NET

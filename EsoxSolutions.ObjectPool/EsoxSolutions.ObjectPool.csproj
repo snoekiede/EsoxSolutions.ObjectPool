@@ -17,7 +17,7 @@
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>version 2.0: Added async support, performance metrics, Try* methods, improved performance with Stack/HashSet</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>2.0.1</Version>
+    <Version>2.0.2</Version>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>C:\temp\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>

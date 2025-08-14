@@ -8,12 +8,12 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// Dynamic object pool that can create new objects using a factory method when the pool is empty
     /// </summary>
     /// <typeparam name="T">the type to be stored in the object pool</typeparam>
-    public class DynamicObjectPool<T> : ObjectPool<T>,IObjectPool<T> where T:class
+    public class DynamicObjectPool<T> : ObjectPool<T> where T:class
     {
         /// <summary>
         /// The factory method to be used to create new objects
         /// </summary>
-        private readonly Func<T>? _factory = null;        
+        private readonly Func<T>? _factory;        
 
         /// <summary>
         /// The constructor for the queryable object pool
@@ -50,23 +50,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             T? obj;
 
-            lock (LockObject)
+            // No lock needed, use concurrent collections
+            if (this.AvailableObjects.IsEmpty)
             {
-                if (this.AvailableObjects.Count == 0)
+                obj = this._factory?.Invoke();
+                if (obj == null)
                 {
-                    obj = this._factory?.Invoke();
-                    if (obj == null)
-                    {
-                        throw new NoObjectsInPoolException("No objects available");
-                    }
-                    this.AvailableObjects.Push(obj);
+                    throw new NoObjectsInPoolException("No objects available");
                 }
-                obj = this.AvailableObjects.Pop();
-                this.ActiveObjects.Add(obj);
+                this.AvailableObjects.Push(obj);
             }
+            if (!this.AvailableObjects.TryPop(out obj!))
+            {
+                throw new NoObjectsInPoolException("No objects available");
+            }
+            this.ActiveObjects.TryAdd(obj, 0);
             return new PoolModel<T>(obj, this);
         }
-
-        
     }
 }

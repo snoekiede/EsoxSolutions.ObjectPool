@@ -54,7 +54,7 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         /// <summary>
         /// List of warning messages
         /// </summary>
-        public List<string> Warnings { get; set; } = new();
+        public List<string> Warnings { get; set; } = [];
 
         /// <summary>
         /// Additional diagnostic information

@@ -2,6 +2,7 @@
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 
 namespace EsoxSolutions.ObjectPool.Pools
 {
@@ -12,18 +13,13 @@ namespace EsoxSolutions.ObjectPool.Pools
     public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable
     {
         /// <summary>
-        /// A stack of available objects for efficient O(1) operations
+        /// A concurrent stack of available objects for efficient O(1) operations
         /// </summary>
-        protected Stack<T> availableObjects;
+        protected ConcurrentStack<T> AvailableObjects;
         /// <summary>
-        /// A hash set of active objects for efficient O(1) lookups
+        /// A concurrent dictionary of active objects for efficient O(1) lookups
         /// </summary>
-        protected HashSet<T> activeObjects;
-
-        /// <summary>
-        /// Simple lock object
-        /// </summary>
-        protected object lockObject = new();
+        protected ConcurrentDictionary<T, byte> ActiveObjects;
 
         /// <summary>
         /// Pool statistics
@@ -33,22 +29,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <summary>
         /// Pool configuration
         /// </summary>
-        protected readonly PoolConfiguration configuration;
+        protected readonly PoolConfiguration Configuration;
 
         /// <summary>
         /// Logger instance
         /// </summary>
-        protected readonly ILogger? logger;
+        protected readonly ILogger? Logger;
 
         /// <summary>
         /// Flag to track if the pool has been disposed
         /// </summary>
-        protected bool disposed = false;
+        protected bool Disposed;
         /// <summary>
         /// Constructor for the object pool
         /// </summary>
         /// <param name="initialObjects">The list of initialized objects. The number of available objects does not change during the lifetime of the object-pool.</param>
-        public ObjectPool(List<T> initialObjects) : this(initialObjects, new PoolConfiguration(), null)
+        public ObjectPool(List<T> initialObjects) : this(initialObjects, new PoolConfiguration())
         {
         }
 
@@ -58,20 +54,20 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <param name="initialObjects">The list of initialized objects</param>
         /// <param name="configuration">Pool configuration options</param>
         /// <param name="logger">Logger instance</param>
-        public ObjectPool(List<T> initialObjects, PoolConfiguration configuration, ILogger<ObjectPool<T>>? logger = null)
+        public ObjectPool(List<T> initialObjects, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null)
         {
-            this.configuration = configuration ?? new PoolConfiguration();
-            this.logger = logger;
-            this.activeObjects = new HashSet<T>();
-            this.availableObjects = new Stack<T>(initialObjects);
+            this.Configuration = configuration ?? new PoolConfiguration();
+            this.Logger = logger;
+            this.ActiveObjects = new ConcurrentDictionary<T, byte>();
+            this.AvailableObjects = new ConcurrentStack<T>(initialObjects);
 
-            if (initialObjects.Count > this.configuration.MaxPoolSize)
+            if (initialObjects.Count > this.Configuration.MaxPoolSize)
             {
-                throw new ArgumentException($"Initial objects count ({initialObjects.Count}) exceeds maximum pool size ({this.configuration.MaxPoolSize})");
+                throw new ArgumentException($"Initial objects count ({initialObjects.Count}) exceeds maximum pool size ({this.Configuration.MaxPoolSize})");
             }
 
             logger?.LogInformation("ObjectPool created with {InitialCount} objects, MaxPoolSize: {MaxPoolSize}, MaxActive: {MaxActive}",
-                initialObjects.Count, this.configuration.MaxPoolSize, this.configuration.MaxActiveObjects);
+                initialObjects.Count, this.Configuration.MaxPoolSize, this.Configuration.MaxActiveObjects);
         }
 
         /// <summary>
@@ -81,38 +77,34 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public virtual PoolModel<T> GetObject()
         {
-            if (disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
 
             T obj;
-            logger?.LogDebug("Attempting to get object from pool. Available: {Count}", availableObjects.Count);
+            Logger?.LogDebug("Attempting to get object from pool. Available: {Count}", AvailableObjects.Count);
 
-            lock (lockObject)
+            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
-                if (this.activeObjects.Count >= configuration.MaxActiveObjects)
-                {
-                    throw new InvalidOperationException($"Maximum active objects limit ({configuration.MaxActiveObjects}) reached");
-                }
-
-                if (this.availableObjects.Count == 0)
-                {
-                    statistics.PoolEmptyCount++;
-                    logger?.LogWarning("Pool is empty, no objects available");
-                    throw new NoObjectsInPoolException("No objects available");
-                }
-                obj = this.availableObjects.Pop();
-                this.activeObjects.Add(obj);
-                
-                statistics.TotalObjectsRetrieved++;
-                statistics.CurrentActiveObjects = this.activeObjects.Count;
-                statistics.CurrentAvailableObjects = this.availableObjects.Count;
-                if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-                {
-                    statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-                }
+                throw new InvalidOperationException($"Maximum active objects limit ({Configuration.MaxActiveObjects}) reached");
             }
 
-            logger?.LogDebug("Object retrieved from pool. Active: {Active}, Available: {Available}", 
-                activeObjects.Count, availableObjects.Count);
+            if (!this.AvailableObjects.TryPop(out obj!))
+            {
+                statistics.PoolEmptyCount++;
+                Logger?.LogWarning("Pool is empty, no objects available");
+                throw new NoObjectsInPoolException("No objects available");
+            }
+            this.ActiveObjects.TryAdd(obj, 0);
+
+            statistics.TotalObjectsRetrieved++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
+            {
+                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
+            }
+
+            Logger?.LogDebug("Object retrieved from pool. Active: {Active}, Available: {Available}",
+                ActiveObjects.Count, AvailableObjects.Count);
 
             return new PoolModel<T>(obj, this);
         }
@@ -124,45 +116,41 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>True if an object was retrieved, false otherwise</returns>
         public bool TryGetObject(out PoolModel<T>? poolModel)
         {
-            if (disposed)
+            if (Disposed)
             {
                 poolModel = null;
                 return false;
             }
 
-            lock (lockObject)
+            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
-                if (this.activeObjects.Count >= configuration.MaxActiveObjects)
-                {
-                    logger?.LogDebug("Cannot get object: active objects limit ({MaxActive}) reached", configuration.MaxActiveObjects);
-                    poolModel = null;
-                    return false;
-                }
-
-                if (this.availableObjects.Count == 0)
-                {
-                    statistics.PoolEmptyCount++;
-                    logger?.LogDebug("Cannot get object: pool is empty");
-                    poolModel = null;
-                    return false;
-                }
-
-                var obj = this.availableObjects.Pop();
-                this.activeObjects.Add(obj);
-                
-                statistics.TotalObjectsRetrieved++;
-                statistics.CurrentActiveObjects = this.activeObjects.Count;
-                statistics.CurrentAvailableObjects = this.availableObjects.Count;
-                if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-                {
-                    statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-                }
-                
-                poolModel = new PoolModel<T>(obj, this);
-                logger?.LogDebug("Object retrieved successfully. Active: {Active}, Available: {Available}", 
-                    activeObjects.Count, availableObjects.Count);
-                return true;
+                Logger?.LogDebug("Cannot get object: active objects limit ({MaxActive}) reached", Configuration.MaxActiveObjects);
+                poolModel = null;
+                return false;
             }
+
+            if (!this.AvailableObjects.TryPop(out var obj))
+            {
+                statistics.PoolEmptyCount++;
+                Logger?.LogDebug("Cannot get object: pool is empty");
+                poolModel = null;
+                return false;
+            }
+
+            this.ActiveObjects.TryAdd(obj, 0);
+
+            statistics.TotalObjectsRetrieved++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
+            {
+                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
+            }
+
+            poolModel = new PoolModel<T>(obj, this);
+            Logger?.LogDebug("Object retrieved successfully. Active: {Active}, Available: {Available}",
+                ActiveObjects.Count, AvailableObjects.Count);
+            return true;
         }
 
         /// <summary>
@@ -172,67 +160,58 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            if (disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
 
-            lock (lockObject)
+            var unwrapped = obj.Unwrap();
+            if (!this.ActiveObjects.ContainsKey(unwrapped))
             {
-                var unwrapped = obj.Unwrap();
-                if (!this.activeObjects.Contains(unwrapped))
-                {
-                    logger?.LogWarning("Attempted to return object that was not in active objects list");
-                    throw new NoObjectsInPoolException("Object not in pool");
-                }
+                Logger?.LogWarning("Attempted to return object that was not in active objects list");
+                throw new NoObjectsInPoolException("Object not in pool");
+            }
 
-                // Validate object if configured
-                if (configuration.ValidateOnReturn && configuration.ValidationFunction != null)
+            // Validate object if configured
+            if (Configuration is {ValidateOnReturn: true, ValidationFunction: not null})
+            {
+                if (!Configuration.ValidationFunction(unwrapped!))
                 {
-                    if (!configuration.ValidationFunction(unwrapped!))
-                    {
-                        logger?.LogWarning("Object failed validation on return, not adding back to pool");
-                        this.activeObjects.Remove(unwrapped);
-                        statistics.TotalObjectsReturned++;
-                        statistics.CurrentActiveObjects = this.activeObjects.Count;
-                        statistics.CurrentAvailableObjects = this.availableObjects.Count;
-                        return;
-                    }
-                }
-
-                // Check if we're exceeding pool size limit
-                if (this.availableObjects.Count >= configuration.MaxPoolSize)
-                {
-                    logger?.LogDebug("Pool at maximum size, discarding returned object");
-                    this.activeObjects.Remove(unwrapped);
+                    Logger?.LogWarning("Object failed validation on return, not adding back to pool");
+                    this.ActiveObjects.TryRemove(unwrapped, out _);
                     statistics.TotalObjectsReturned++;
-                    statistics.CurrentActiveObjects = this.activeObjects.Count;
-                    statistics.CurrentAvailableObjects = this.availableObjects.Count;
+                    statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                    statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                     return;
                 }
-
-                this.activeObjects.Remove(unwrapped);
-                this.availableObjects.Push(unwrapped);
-                
-                statistics.TotalObjectsReturned++;
-                statistics.CurrentActiveObjects = this.activeObjects.Count;
-                statistics.CurrentAvailableObjects = this.availableObjects.Count;
-
-                logger?.LogDebug("Object returned to pool. Active: {Active}, Available: {Available}", 
-                    activeObjects.Count, availableObjects.Count);
             }
+
+            // Check if we're exceeding pool size limit
+            if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
+            {
+                Logger?.LogDebug("Pool at maximum size, discarding returned object");
+                this.ActiveObjects.TryRemove(unwrapped, out _);
+                statistics.TotalObjectsReturned++;
+                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                return;
+            }
+
+            this.ActiveObjects.TryRemove(unwrapped, out _);
+            this.AvailableObjects.Push(unwrapped);
+
+            statistics.TotalObjectsReturned++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+
+            Logger?.LogDebug("Object returned to pool. Active: {Active}, Available: {Available}",
+                ActiveObjects.Count, AvailableObjects.Count);
         }
 
         /// <summary>
         /// Gets the number of available objects in the pool
         /// </summary>
-        public int availableObjectCount {
+        public int AvailableObjectCount {
             get
             {
-                int result;
-                lock (lockObject)
-                {
-                    result = this.availableObjects.Count;
-                }
-
-                return result;
+                return this.AvailableObjects.Count;
             }
         }
 
@@ -243,12 +222,9 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             get
             {
-                lock (lockObject)
-                {
-                    statistics.CurrentActiveObjects = this.activeObjects.Count;
-                    statistics.CurrentAvailableObjects = this.availableObjects.Count;
-                    return statistics;
-                }
+                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                return statistics;
             }
         }
         
@@ -261,14 +237,11 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             get
             {
-                lock (lockObject)
-                {
-                    var utilizationPct = UtilizationPercentage;
-                    var hasAvailableObjects = availableObjects.Count > 0;
-                    var notOverCapacity = activeObjects.Count < configuration.MaxActiveObjects;
-                    
-                    return hasAvailableObjects && notOverCapacity && utilizationPct < 95.0;
-                }
+                var utilizationPct = UtilizationPercentage;
+                var hasAvailableObjects = AvailableObjects.Count > 0;
+                var notOverCapacity = ActiveObjects.Count < Configuration.MaxActiveObjects;
+                
+                return hasAvailableObjects && notOverCapacity && utilizationPct < 95.0;
             }
         }
 
@@ -279,13 +252,10 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             get
             {
-                lock (lockObject)
-                {
-                    var totalCapacity = Math.Min(configuration.MaxActiveObjects, configuration.MaxPoolSize);
-                    if (totalCapacity == int.MaxValue) return 0.0; // Unlimited capacity
-                    
-                    return (double)activeObjects.Count / totalCapacity * 100.0;
-                }
+                var totalCapacity = Math.Min(Configuration.MaxActiveObjects, Configuration.MaxPoolSize);
+                if (totalCapacity == int.MaxValue) return 0.0; // Unlimited capacity
+                
+                return (double)ActiveObjects.Count / totalCapacity * 100.0;
             }
         }
 
@@ -294,46 +264,45 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         public PoolHealthStatus GetHealthStatus()
         {
-            lock (lockObject)
+            var status = new PoolHealthStatus
             {
-                var status = new PoolHealthStatus
+                UtilizationPercentage = UtilizationPercentage,
+                LastChecked = DateTime.UtcNow,
+                Diagnostics =
                 {
-                    UtilizationPercentage = UtilizationPercentage,
-                    LastChecked = DateTime.UtcNow
-                };
-
-                status.Diagnostics["TotalRetrieved"] = statistics.TotalObjectsRetrieved;
-                status.Diagnostics["TotalReturned"] = statistics.TotalObjectsReturned;
-                status.Diagnostics["PeakActive"] = statistics.PeakActiveObjects;
-                status.Diagnostics["PoolEmptyEvents"] = statistics.PoolEmptyCount;
-                status.Diagnostics["CurrentActive"] = activeObjects.Count;
-                status.Diagnostics["CurrentAvailable"] = availableObjects.Count;
-
-                // Check for warning conditions
-                if (availableObjects.Count == 0)
-                {
-                    status.Warnings.Add("Pool has no available objects");
-                    status.WarningCount++;
+                    ["TotalRetrieved"] = statistics.TotalObjectsRetrieved,
+                    ["TotalReturned"] = statistics.TotalObjectsReturned,
+                    ["PeakActive"] = statistics.PeakActiveObjects,
+                    ["PoolEmptyEvents"] = statistics.PoolEmptyCount,
+                    ["CurrentActive"] = ActiveObjects.Count,
+                    ["CurrentAvailable"] = AvailableObjects.Count
                 }
+            };
 
-                if (status.UtilizationPercentage > 80.0)
-                {
-                    status.Warnings.Add($"High utilization: {status.UtilizationPercentage:F1}%");
-                    status.WarningCount++;
-                }
-
-                if (statistics.PoolEmptyCount > 0)
-                {
-                    status.Warnings.Add($"Pool has been empty {statistics.PoolEmptyCount} times");
-                    status.WarningCount++;
-                }
-
-                status.IsHealthy = IsHealthy;
-                status.HealthMessage = status.IsHealthy ? "Pool is healthy" : 
-                    $"Pool has {status.WarningCount} warning(s): {string.Join(", ", status.Warnings)}";
-
-                return status;
+            // Check for warning conditions
+            if (AvailableObjects.Count == 0)
+            {
+                status.Warnings.Add("Pool has no available objects");
+                status.WarningCount++;
             }
+
+            if (status.UtilizationPercentage > 80.0)
+            {
+                status.Warnings.Add($"High utilization: {status.UtilizationPercentage:F1}%");
+                status.WarningCount++;
+            }
+
+            if (statistics.PoolEmptyCount > 0)
+            {
+                status.Warnings.Add($"Pool has been empty {statistics.PoolEmptyCount} times");
+                status.WarningCount++;
+            }
+
+            status.IsHealthy = IsHealthy;
+            status.HealthMessage = status.IsHealthy ? "Pool is healthy" : 
+                $"Pool has {status.WarningCount} warning(s): {string.Join(", ", status.Warnings)}";
+
+            return status;
         }
 
         #endregion
@@ -346,18 +315,18 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A poolmodel</returns>
         public async Task<PoolModel<T>> GetObjectAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
-            if (disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
 
-            var effectiveTimeout = timeout == default ? configuration.DefaultTimeout : timeout;
+            var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
 
-            logger?.LogDebug("Starting async object retrieval with timeout: {Timeout}", effectiveTimeout);
+            Logger?.LogDebug("Starting async object retrieval with timeout: {Timeout}", effectiveTimeout);
 
             while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
             {
                 if (TryGetObject(out var poolModel))
                 {
-                    logger?.LogDebug("Successfully retrieved object asynchronously");
+                    Logger?.LogDebug("Successfully retrieved object asynchronously");
                     return poolModel!;
                 }
 
@@ -367,57 +336,46 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             if (cancellationToken.IsCancellationRequested)
             {
-                logger?.LogDebug("Async object retrieval cancelled");
+                Logger?.LogDebug("Async object retrieval cancelled");
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
-            logger?.LogWarning("Timeout waiting for object from pool after {Timeout}", effectiveTimeout);
+            Logger?.LogWarning("Timeout waiting for object from pool after {Timeout}", effectiveTimeout);
             throw new TimeoutException($"Timeout waiting for object from pool after {effectiveTimeout}");
         }
 
         #region IPoolMetrics Implementation
 
         /// <summary>
-        /// Export metrics in a format suitable for monitoring systems
-        /// </summary>
-        public Dictionary<string, object> ExportMetrics()
-        {
-            return ExportMetrics(null);
-        }
-
-        /// <summary>
         /// Export metrics with tags/labels for dimensional monitoring
         /// </summary>
         public Dictionary<string, object> ExportMetrics(Dictionary<string, string>? tags = null)
         {
-            lock (lockObject)
+            var metrics = new Dictionary<string, object>
             {
-                var metrics = new Dictionary<string, object>
-                {
-                    ["pool_objects_retrieved_total"] = statistics.TotalObjectsRetrieved,
-                    ["pool_objects_returned_total"] = statistics.TotalObjectsReturned,
-                    ["pool_objects_active_current"] = activeObjects.Count,
-                    ["pool_objects_available_current"] = availableObjects.Count,
-                    ["pool_objects_active_peak"] = statistics.PeakActiveObjects,
-                    ["pool_empty_events_total"] = statistics.PoolEmptyCount,
-                    ["pool_utilization_percentage"] = UtilizationPercentage,
-                    ["pool_health_status"] = IsHealthy ? 1 : 0,
-                    ["pool_max_size"] = configuration.MaxPoolSize == int.MaxValue ? -1 : configuration.MaxPoolSize,
-                    ["pool_max_active"] = configuration.MaxActiveObjects == int.MaxValue ? -1 : configuration.MaxActiveObjects,
-                    ["pool_statistics_start_time"] = statistics.StatisticsStartTime,
-                    ["pool_uptime_seconds"] = (DateTime.UtcNow - statistics.StatisticsStartTime).TotalSeconds
-                };
+                ["pool_objects_retrieved_total"] = statistics.TotalObjectsRetrieved,
+                ["pool_objects_returned_total"] = statistics.TotalObjectsReturned,
+                ["pool_objects_active_current"] = ActiveObjects.Count,
+                ["pool_objects_available_current"] = AvailableObjects.Count,
+                ["pool_objects_active_peak"] = statistics.PeakActiveObjects,
+                ["pool_empty_events_total"] = statistics.PoolEmptyCount,
+                ["pool_utilization_percentage"] = UtilizationPercentage,
+                ["pool_health_status"] = IsHealthy ? 1 : 0,
+                ["pool_max_size"] = Configuration.MaxPoolSize == int.MaxValue ? -1 : Configuration.MaxPoolSize,
+                ["pool_max_active"] = Configuration.MaxActiveObjects == int.MaxValue ? -1 : Configuration.MaxActiveObjects,
+                ["pool_statistics_start_time"] = statistics.StatisticsStartTime,
+                ["pool_uptime_seconds"] = (DateTime.UtcNow - statistics.StatisticsStartTime).TotalSeconds
+            };
 
-                if (tags != null)
+            if (tags != null)
+            {
+                foreach (var tag in tags)
                 {
-                    foreach (var tag in tags)
-                    {
-                        metrics[$"tag_{tag.Key}"] = tag.Value;
-                    }
+                    metrics[$"tag_{tag.Key}"] = tag.Value;
                 }
-
-                return metrics;
             }
+
+            return metrics;
         }
 
         /// <summary>
@@ -425,14 +383,13 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         public void ResetMetrics()
         {
-            lock (lockObject)
+            Logger?.LogInformation("Resetting pool metrics");
+            statistics = new PoolStatistics
             {
-                logger?.LogInformation("Resetting pool metrics");
-                statistics = new PoolStatistics();
-                statistics.CurrentActiveObjects = activeObjects.Count;
-                statistics.CurrentAvailableObjects = availableObjects.Count;
-                statistics.PeakActiveObjects = activeObjects.Count;
-            }
+                CurrentActiveObjects = ActiveObjects.Count,
+                CurrentAvailableObjects = AvailableObjects.Count,
+                PeakActiveObjects = ActiveObjects.Count
+            };
         }
 
         /// <summary>
@@ -483,7 +440,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 "pool_objects_returned_total" => "counter",
                 "pool_empty_events_total" => "counter",
                 "pool_uptime_seconds" => "counter",
-                "pool_objects_active_peak" => "gauge",
                 _ => "gauge"
             };
         }
@@ -506,35 +462,31 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         protected virtual void Dispose(bool disposing)
         {
-            if (!disposed && disposing)
+            if (!Disposed && disposing)
             {
-                logger?.LogInformation("Disposing ObjectPool with {Active} active objects and {Available} available objects", 
-                    activeObjects.Count, availableObjects.Count);
+                Logger?.LogInformation("Disposing ObjectPool with {Active} active objects and {Available} available objects", 
+                    ActiveObjects.Count, AvailableObjects.Count);
 
-                lock (lockObject)
+                foreach (var obj in AvailableObjects)
                 {
-                    // Dispose any disposable objects in the pool
-                    foreach (var obj in availableObjects)
+                    if (obj is IDisposable disposableObj)
                     {
-                        if (obj is IDisposable disposableObj)
-                        {
-                            disposableObj.Dispose();
-                        }
+                        disposableObj.Dispose();
                     }
-
-                    foreach (var obj in activeObjects)
-                    {
-                        if (obj is IDisposable disposableObj)
-                        {
-                            disposableObj.Dispose();
-                        }
-                    }
-
-                    availableObjects.Clear();
-                    activeObjects.Clear();
                 }
 
-                disposed = true;
+                foreach (var obj in ActiveObjects.Keys)
+                {
+                    if (obj is IDisposable disposableObj)
+                    {
+                        disposableObj.Dispose();
+                    }
+                }
+
+                AvailableObjects.Clear();
+                ActiveObjects.Clear();
+
+                Disposed = true;
             }
         }
 

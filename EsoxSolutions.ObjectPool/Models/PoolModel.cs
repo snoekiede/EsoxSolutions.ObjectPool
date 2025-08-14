@@ -1,5 +1,4 @@
 ﻿using EsoxSolutions.ObjectPool.Interfaces;
-using EsoxSolutions.ObjectPool.Pools;
 
 namespace EsoxSolutions.ObjectPool.Models
 {
@@ -9,9 +8,9 @@ namespace EsoxSolutions.ObjectPool.Models
     /// <typeparam name="T">The type of the object to be wrapped</typeparam>
     public class PoolModel<T> : IDisposable
     {
-        private T value;
-        private IObjectPool<T> pool;
-        private bool disposed = false;
+        private readonly T _value;
+        private readonly IObjectPool<T> _pool;
+        private bool _disposed = false;
 
         /// <summary>
         /// Constructor for the pool model
@@ -20,8 +19,8 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <param name="pool">The object pool to which this PoolModel belongs</param>
         public PoolModel(T value, IObjectPool<T> pool)
         {
-            this.value = value ?? throw new ArgumentNullException(nameof(value));
-            this.pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            this._value = value ?? throw new ArgumentNullException(nameof(value));
+            this._pool = pool ?? throw new ArgumentNullException(nameof(pool));
         }
 
         /// <summary>
@@ -31,9 +30,9 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="ObjectDisposedException">Thrown when trying to access a disposed object</exception>
         public T Unwrap()
         {
-            if (disposed)
+            if (_disposed)
                 throw new ObjectDisposedException(nameof(PoolModel<T>));
-            return this.value;
+            return this._value;
         }
 
         /// <summary>
@@ -41,10 +40,10 @@ namespace EsoxSolutions.ObjectPool.Models
         /// </summary>
         public void Dispose()
         {
-            if (!disposed)
+            if (!_disposed)
             {
-                this.pool.ReturnObject(this);
-                disposed = true;
+                this._pool.ReturnObject(this);
+                _disposed = true;
             }
         }
     }

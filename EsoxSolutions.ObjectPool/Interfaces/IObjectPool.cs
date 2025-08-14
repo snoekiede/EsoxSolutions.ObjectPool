@@ -11,7 +11,7 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         /// <summary>
         /// Get the number of available objects
         /// </summary>
-        int availableObjectCount { get; }
+        int AvailableObjectCount { get; }
 
         /// <summary>
         /// Get an object from the pool,raises an exception if no object could be found

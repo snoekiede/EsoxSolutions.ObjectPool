@@ -123,3 +123,9 @@ Console.WriteLine(prometheus);
 ---
 For bug reports or suggestions, contact [info@esoxsolutions.nl](info@esoxsolutions.nl)
 
+---
+
+## Disclaimer
+
+**Use of this software is at your own risk. The author(s) of EsoxSolutions.ObjectPool are not liable for any damages, losses, or other consequences resulting from the use, misuse, or inability to use this software.**
+

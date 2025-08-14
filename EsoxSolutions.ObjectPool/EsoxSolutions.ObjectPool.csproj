@@ -13,7 +13,7 @@
     <AssemblyVersion>2.0.4</AssemblyVersion>
     <FileVersion>2.0.4</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <Title>Threadsafe Object pool for .NET with Async Support</Title>
+    <Title>Threadsafe Object pool for .NET with async Support</Title>
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>version 2.0: Added async support, performance metrics, Try* methods, improved performance with Stack/HashSet</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>

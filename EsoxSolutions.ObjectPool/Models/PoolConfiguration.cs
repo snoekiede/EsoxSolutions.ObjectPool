@@ -35,14 +35,6 @@ namespace EsoxSolutions.ObjectPool.Models
         /// </summary>
         public bool EnableDetailedStatistics { get; set; } = true;
 
-        /// <summary>
-        /// How often to clean up expired objects (default: 5 minutes)
-        /// </summary>
-        public TimeSpan CleanupInterval { get; set; } = TimeSpan.FromMinutes(5);
 
-        /// <summary>
-        /// Maximum age for objects in the pool before they're considered stale
-        /// </summary>
-        public TimeSpan? MaxObjectAge { get; set; }
     }
 }

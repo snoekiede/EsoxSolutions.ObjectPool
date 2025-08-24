@@ -123,6 +123,14 @@ namespace EsoxSolutions.ObjectPool.Constants
             public const string PoolEmpty = "Pool is empty, no objects available";
             
             /// <summary>
+            /// Represents the error message indicating that a new object cannot be created for the pool.
+            /// </summary>
+            /// <remarks>This constant is typically used in scenarios where object creation for a
+            /// resource pool fails,  such as when the pool has reached its capacity or due to other
+            /// constraints. Another the factory method used for creating new objects could have failed.</remarks>
+            public const string CannotCreateObject="Unable to create new object for pool";
+
+            /// <summary>
             /// No objects available exception message
             /// </summary>
             public const string NoObjectsAvailable = "No objects available";
@@ -201,6 +209,64 @@ namespace EsoxSolutions.ObjectPool.Constants
             /// Initial objects exceed maximum pool size format
             /// </summary>
             public const string InitialObjectsExceedMaxFormat = "Initial objects count ({0}) exceeds maximum pool size ({1})";
+
+            /// <summary>
+            /// Represents a message template indicating an attempt to retrieve an object from a pool,  including the
+            /// current count of available objects.
+            /// </summary>
+            /// <remarks>This constant is typically used for logging purposes to provide information
+            /// about the  state of an object pool when an object retrieval is attempted. The placeholder "{Count}" 
+            /// should be replaced with the number of available objects in the pool at the time of logging.</remarks>
+            public const string AttemptingToGetObjectFromPoolAvailableCount = "Attempting to get object from pool. Available: {Count}";
+
+            /// <summary>
+            /// Represents a message template indicating that an object has been retrieved from the pool,  including the
+            /// number of active and available objects.
+            /// </summary>
+            /// <remarks>The message template contains placeholders for the number of active and
+            /// available objects  in the pool, which can be used for logging or debugging purposes.</remarks>
+            public const string ObjectRetrievedFromPoolActiveActiveAvailableAvailable = "Object retrieved from pool. Active: {Active}, Available: {Available}";
+
+            /// <summary>
+            /// Represents an error message indicating that the maximum number of active objects has been reached.
+            /// </summary>
+            /// <remarks>This constant can be used in scenarios where an operation fails due to
+            /// exceeding the configured limit  of active objects. The placeholder <c>{MaxActive}</c> in the message
+            /// should be replaced with the actual  maximum limit value.</remarks>
+            public const string CannotGetObjectActiveObjectsLimitMaxactiveReached = "Cannot get object: active objects limit ({MaxActive}) reached";
+
+
+            /// <summary>
+            /// Represents a message template indicating that an object was successfully retrieved,  including its
+            /// active and available status.
+            /// </summary>
+            /// <remarks>The message template contains placeholders for the values of <c>Active</c>
+            /// and <c>Available</c>,  which can be replaced with specific values to provide detailed status
+            /// information.</remarks>
+            public const string ObjectRetrievedSuccessfullyActiveAvailable = "Object retrieved successfully. Active: {Active}, Available: {Available}";
+
+            /// <summary>
+            /// Represents a message template indicating that an object has been returned to the pool,  along with the
+            /// current count of active and available objects.
+            /// </summary>
+            /// <remarks>The message template includes placeholders for the number of active objects 
+            /// (<c>{Active}</c>) and the number of available objects (<c>{Available}</c>) in the pool. This can be used
+            /// for logging or debugging purposes to track the state of the object pool.</remarks>
+            public const string ObjectReturnedToPoolActiveAvailable = "Object returned to pool. Active: {Active}, Available: {Available}";
+
+            /// <summary>
+            /// Represents a log message template for the creation of an object pool, including its initial count,
+            /// maximum pool size, and maximum active objects.
+            /// </summary>
+            /// <remarks>This constant string is intended to be used as a log message template. It
+            /// includes placeholders for the initial object count, the maximum pool size, and the maximum number of
+            /// active objects.</remarks>
+            public const string ObjectpoolCreatedWithInitialcountObjectsMaxpoolsizeMaxactive = "ObjectPool created with {InitialCount} objects, MaxPoolSize: {MaxPoolSize}, MaxActive: {MaxActive}";
+
+            /// <summary>
+            /// Represents the error message indicating that no objects in the pool match the specified query.
+            /// </summary>
+            public const string NoObjectsInPoolMatchingYourQuery = "No objects in pool matching your query";
         }
 
         /// <summary>

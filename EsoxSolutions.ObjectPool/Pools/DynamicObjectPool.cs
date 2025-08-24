@@ -1,6 +1,7 @@
 ﻿using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
+using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.Pools
 {
@@ -41,6 +42,41 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
         }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DynamicObjectPool{T}"/> class with a specified factory method,
+        /// an initial collection of objects, optional pool configuration, and an optional logger.
+        /// </summary>
+        /// <remarks>The <paramref name="factory"/> parameter is required and must not be null. The
+        /// <paramref name="initialObjects"/> list can be empty, but it must not be null. If <paramref
+        /// name="configuration"/> is provided, it will override the default pool behavior. The logger can be used to
+        /// monitor pool activity, such as object creation and disposal.</remarks>
+        /// <param name="factory">A function that creates new instances of the pooled object. This function is invoked when the pool needs to
+        /// create additional objects.</param>
+        /// <param name="initialObjects">A list of pre-created objects to populate the pool initially. These objects will be available for reuse
+        /// immediately.</param>
+        /// <param name="configuration">Optional configuration settings for the object pool, such as maximum pool size and eviction policies. If
+        /// null, default settings are used.</param>
+        /// <param name="logger">An optional logger instance for logging pool-related events. If null, no logging will be performed.</param>
+        public DynamicObjectPool(Func<T> factory,List<T> initialObjects, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null): base(initialObjects, configuration, logger)
+        {
+            this._factory = factory;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DynamicObjectPool{T}"/> class with the specified factory
+        /// method, configuration, and optional logger.
+        /// </summary>
+        /// <param name="factory">A function that creates new instances of the pooled object. This function is called when the pool needs to
+        /// allocate a new object.</param>
+        /// <param name="configuration">An optional <see cref="PoolConfiguration"/> object that specifies the settings for the object pool, such as
+        /// maximum size and eviction policies. If null, default settings are used.</param>
+        /// <param name="logger">An optional <see cref="ILogger{TCategoryName}"/> instance used to log diagnostic information about the
+        /// pool's behavior. If null, no logging is performed.</param>
+        public DynamicObjectPool(Func<T> factory, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null) : base([], configuration, logger)
+        {
+            this._factory = factory;
+        }
         /// <summary>
         /// Returns an object from the pool. If no objects are available, an exception is thrown.
         /// </summary>
@@ -56,7 +92,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 result = this._factory?.Invoke();
                 if (result == null)
                 {
-                    throw new NoObjectsInPoolException(PoolConstants.Messages.NoAvailableObjects);
+                    throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
                 }
                 this.AvailableObjects.Push(result);
             }

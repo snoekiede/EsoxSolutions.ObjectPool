@@ -2,7 +2,7 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+ and .NET 9. It supports automatic return of objects, async operations, health monitoring, performance metrics, and flexible configuration. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+ and .NET 9. It supports automatic return of objects, async operations, performance metrics, and flexible configuration. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
 ## Features
     

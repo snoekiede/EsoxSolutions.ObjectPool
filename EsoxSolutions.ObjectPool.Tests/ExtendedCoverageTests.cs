@@ -304,7 +304,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             
             // Act & Assert - No factory, so getting another should throw
-            Assert.Throws<NoObjectsInPoolException>(() => pool.GetObject());
+            Assert.Throws<UnableToCreateObjectException>(() => pool.GetObject());
             
             // Clean up
             foreach (var obj in objects)

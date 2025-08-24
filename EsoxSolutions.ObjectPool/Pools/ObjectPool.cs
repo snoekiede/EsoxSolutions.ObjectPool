@@ -71,7 +71,8 @@ namespace EsoxSolutions.ObjectPool.Pools
                     initialObjects.Count, this.Configuration.MaxPoolSize));
             }
 
-            logger?.LogInformation("ObjectPool created with {InitialCount} objects, MaxPoolSize: {MaxPoolSize}, MaxActive: {MaxActive}",
+            
+            logger?.LogInformation(PoolConstants.Messages.ObjectpoolCreatedWithInitialcountObjectsMaxpoolsizeMaxactive,
                 initialObjects.Count, this.Configuration.MaxPoolSize, this.Configuration.MaxActiveObjects);
         }
 
@@ -84,7 +85,8 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
 
-            Logger?.LogDebug("Attempting to get object from pool. Available: {Count}", AvailableObjects.Count);
+            
+            Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolAvailableCount, AvailableObjects.Count);
 
             if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
@@ -108,7 +110,8 @@ namespace EsoxSolutions.ObjectPool.Pools
                 statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
             }
 
-            Logger?.LogDebug("Object retrieved from pool. Active: {Active}, Available: {Available}",
+            
+            Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedFromPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
 
             return new PoolModel<T>(result, this);
@@ -129,7 +132,7 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
-                Logger?.LogDebug("Cannot get object: active objects limit ({MaxActive}) reached", Configuration.MaxActiveObjects);
+                Logger?.LogDebug(PoolConstants.Messages.CannotGetObjectActiveObjectsLimitMaxactiveReached, Configuration.MaxActiveObjects);
                 poolModel = null;
                 return false;
             }
@@ -153,7 +156,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             poolModel = new PoolModel<T>(result, this);
-            Logger?.LogDebug("Object retrieved successfully. Active: {Active}, Available: {Available}",
+            Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedSuccessfullyActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
             return true;
         }
@@ -206,7 +209,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
 
-            Logger?.LogDebug("Object returned to pool. Active: {Active}, Available: {Available}",
+            Logger?.LogDebug(PoolConstants.Messages.ObjectReturnedToPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
         }
 

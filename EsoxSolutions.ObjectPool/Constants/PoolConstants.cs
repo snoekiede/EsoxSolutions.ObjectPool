@@ -267,6 +267,80 @@ namespace EsoxSolutions.ObjectPool.Constants
             /// Represents the error message indicating that no objects in the pool match the specified query.
             /// </summary>
             public const string NoObjectsInPoolMatchingYourQuery = "No objects in pool matching your query";
+
+            /// <summary>
+            /// Represents a message template indicating that an object matching a query  has been retrieved from a
+            /// pool, along with the number of active and available objects.
+            /// </summary>
+            /// <remarks>This constant can be used for logging or debugging purposes to provide
+            /// information  about the state of a pool when an object is retrieved.</remarks>
+            public const string ObjectMatchingQueryRetrievedFromPoolActiveAvailable = "Object matching query retrieved from pool. Active: {Active}, Available: {Available}";
+
+            /// <summary>
+            /// Represents a message template used to log an attempt to retrieve an object from a pool using a query, 
+            /// including the count of available objects in the pool.
+            /// </summary>
+            /// <remarks>This constant is typically used in logging scenarios to provide diagnostic
+            /// information about the state  of an object pool when attempting to retrieve an object based on a
+            /// query.</remarks>
+            public const string AttemptingToGetObjectWithQueryFromPoolAvailableCount = "Attempting to get object with query from pool. Available: {Count}";
+
+            /// <summary>
+            /// Represents the message indicating that no objects in the pool match the specified query.
+            /// </summary>
+            /// <remarks>This constant can be used to provide a standardized error or informational
+            /// message when a query against an object pool yields no matching results.</remarks>
+            public const string NoObjectsInPoolMatchTheQuery = "No objects in pool match the query";
+
+            /// <summary>
+            /// Represents an error message indicating that no matching object is available  due to a race condition
+            /// where the object was taken by another thread.
+            /// </summary>
+            public const string NoMatchingObjectAvailableRaceConditionTakenByAnotherThread = "No matching object available (race condition, taken by another thread)";
+
+            /// <summary>
+            /// Represents a message indicating that an object matching the query was successfully retrieved,  including
+            /// the active and available status values.
+            /// </summary>
+            /// <remarks>The message includes placeholders for the active and available status values,
+            /// which can be  formatted using string interpolation or other formatting methods.</remarks>
+            public const string ObjectMatchingQueryRetrievedSuccessfullyActiveAvailable = "Object matching query retrieved successfully. Active: {Active}, Available: {Available}";
+
+            /// <summary>
+            /// Represents the error message used when an error occurs while attempting to retrieve an object using a
+            /// query.
+            /// </summary>
+            public const string ErrorOccurredWhileTryingToGetObjectWithQuery = "Error occurred while trying to get object with query";
+
+            /// <summary>
+            /// Represents a message template indicating the start of an asynchronous object retrieval operation with a
+            /// specified timeout.
+            /// </summary>
+            /// <remarks>The message includes a placeholder for the timeout value, which can be used
+            /// to log or display the timeout duration for the operation.</remarks>
+            public const string StartingAsyncObjectRetrievalWithTimeout = "Starting async object retrieval with timeout: {Timeout}";
+
+            /// <summary>
+            /// Represents a log message indicating the start of an asynchronous object retrieval operation  with a
+            /// specified query and timeout.
+            /// </summary>
+            /// <remarks>The message includes a placeholder for the timeout value, which can be
+            /// formatted into the log  message to provide additional context about the operation.</remarks>
+            public const string StartingAsyncObjectRetrievalWithQueryAndTimeoutTimeout = "Starting async object retrieval with query and timeout: {Timeout}";
+
+            /// <summary>
+            /// Represents a message indicating that an object was successfully retrieved using a query asynchronously.
+            /// </summary>
+            public const string SuccessfullyRetrievedObjectWithQueryAsynchronously = "Successfully retrieved object with query asynchronously";
+
+            /// <summary>
+            /// Represents the message format used when a timeout occurs while waiting for an object  matching a
+            /// specific query from the pool.
+            /// </summary>
+            /// <remarks>The message includes a placeholder ({0}) for the duration of the timeout. 
+            /// This constant can be used for logging or exception messages to provide detailed  information about the
+            /// timeout event.</remarks>
+            public const string TimeoutWaitingForObjectMatchingQueryFromPoolAfter = "Timeout waiting for object matching query from pool after {0}";
         }
 
         /// <summary>

@@ -11,7 +11,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// Queryable object pool
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class QueryableObjectPool<T> : IQueryableObjectPool<T>
+    public class QueryableObjectPool<T> : IQueryableObjectPool<T>, IPoolHealth, IPoolMetrics
     {
         /// <summary>
         /// A concurrent stack of available objects for efficient O(1) operations
@@ -290,8 +290,8 @@ namespace EsoxSolutions.ObjectPool.Pools
             {
                 statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
             }
-
-            Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedFromPoolActiveAvailable, 
+            
+            Logger?.LogDebug("Object matching query retrieved from pool. Active: {Active}, Available: {Available}", 
                 ActiveObjects.Count, AvailableObjects.Count);
             
             return new PoolModel<T>(foundObject, this);
@@ -307,7 +307,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             try
             {
-                Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectWithQueryFromPoolAvailableCount, AvailableObjects.Count);
+                Logger?.LogDebug("Attempting to get object with query from pool. Available: {Count}", AvailableObjects.Count);
                 
                 if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
                 {
@@ -323,7 +323,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 var matchingObject = availableObjects.FirstOrDefault(query);
                 if (matchingObject == null || EqualityComparer<T>.Default.Equals(matchingObject, default))
                 {
-                    Logger?.LogDebug(PoolConstants.Messages.NoObjectsInPoolMatchTheQuery);
+                    Logger?.LogDebug("No objects in pool match the query");
                     poolModel = null;
                     return false;
                 }
@@ -360,7 +360,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 if (!foundMatch)
                 {
                     // No matching object was available (might have been taken by another thread)
-                    Logger?.LogDebug(PoolConstants.Messages.NoMatchingObjectAvailableRaceConditionTakenByAnotherThread);
+                    Logger?.LogDebug("No matching object available (race condition, taken by another thread)");
                     poolModel = null;
                     return false;
                 }
@@ -377,15 +377,14 @@ namespace EsoxSolutions.ObjectPool.Pools
                 }
                 
                 poolModel = new PoolModel<T>(foundObject, this);
-                
-                Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedSuccessfullyActiveAvailable, 
+                Logger?.LogDebug("Object matching query retrieved successfully. Active: {Active}, Available: {Available}", 
                     ActiveObjects.Count, AvailableObjects.Count);
                 return true;
             }
             catch (Exception ex)
             {
                 // Handle any unexpected errors gracefully
-                Logger?.LogError(ex, PoolConstants.Messages.ErrorOccurredWhileTryingToGetObjectWithQuery);
+                Logger?.LogError(ex, "Error occurred while trying to get object with query");
                 poolModel = null;
                 return false;
             }
@@ -402,7 +401,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
 
-            Logger?.LogDebug(PoolConstants.Messages.StartingAsyncObjectRetrievalWithTimeout, effectiveTimeout);
+            Logger?.LogDebug("Starting async object retrieval with timeout: {Timeout}", effectiveTimeout);
 
             while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
             {
@@ -438,13 +437,13 @@ namespace EsoxSolutions.ObjectPool.Pools
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
 
-            Logger?.LogDebug(PoolConstants.Messages.StartingAsyncObjectRetrievalWithQueryAndTimeoutTimeout, effectiveTimeout);
+            Logger?.LogDebug("Starting async object retrieval with query and timeout: {Timeout}", effectiveTimeout);
 
             while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
             {
                 if (TryGetObject(query, out var poolModel))
                 {
-                    Logger?.LogDebug(PoolConstants.Messages.SuccessfullyRetrievedObjectWithQueryAsynchronously);
+                    Logger?.LogDebug("Successfully retrieved object with query asynchronously");
                     return poolModel!;
                 }
 
@@ -458,9 +457,181 @@ namespace EsoxSolutions.ObjectPool.Pools
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
-            Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingForObjectMatchingQueryFromPoolAfter, effectiveTimeout);
-            throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
+            Logger?.LogWarning("Timeout waiting for object matching query from pool after {0}", effectiveTimeout);
+            throw new TimeoutException($"Timeout waiting for object matching query from pool after {effectiveTimeout}");
         }
+
+        #region IPoolHealth Implementation
+
+        /// <summary>
+        /// Checks if the pool is healthy
+        /// </summary>
+        public bool IsHealthy
+        {
+            get
+            {
+                var utilizationPct = UtilizationPercentage;
+                var hasAvailableObjects = AvailableObjects.Count > 0;
+                var notOverCapacity = ActiveObjects.Count < Configuration.MaxActiveObjects;
+                
+                return hasAvailableObjects && notOverCapacity && utilizationPct < PoolConstants.Thresholds.CriticalUtilizationThreshold;
+            }
+        }
+
+        /// <summary>
+        /// Gets the utilization percentage of the pool
+        /// </summary>
+        public double UtilizationPercentage
+        {
+            get
+            {
+                var totalCapacity = Math.Min(Configuration.MaxActiveObjects, Configuration.MaxPoolSize);
+                if (totalCapacity == int.MaxValue) return 0.0; // Unlimited capacity
+                
+                return (double)ActiveObjects.Count / totalCapacity * 100.0;
+            }
+        }
+
+        /// <summary>
+        /// Gets health status with details
+        /// </summary>
+        public PoolHealthStatus GetHealthStatus()
+        {
+            var status = new PoolHealthStatus
+            {
+                UtilizationPercentage = UtilizationPercentage,
+                LastChecked = DateTime.UtcNow,
+                Diagnostics =
+                {
+                    [PoolConstants.Diagnostics.TotalRetrieved] = statistics.TotalObjectsRetrieved,
+                    [PoolConstants.Diagnostics.TotalReturned] = statistics.TotalObjectsReturned,
+                    [PoolConstants.Diagnostics.PeakActive] = statistics.PeakActiveObjects,
+                    [PoolConstants.Diagnostics.PoolEmptyEvents] = statistics.PoolEmptyCount,
+                    [PoolConstants.Diagnostics.CurrentActive] = ActiveObjects.Count,
+                    [PoolConstants.Diagnostics.CurrentAvailable] = AvailableObjects.Count
+                }
+            };
+
+            // Check for warning conditions
+            if (AvailableObjects.Count == 0)
+            {
+                status.Warnings.Add(PoolConstants.Messages.NoAvailableObjects);
+                status.WarningCount++;
+            }
+
+            if (status.UtilizationPercentage > PoolConstants.Thresholds.HighUtilizationThreshold)
+            {
+                status.Warnings.Add(string.Format(PoolConstants.Messages.HighUtilizationFormat, status.UtilizationPercentage));
+                status.WarningCount++;
+            }
+
+            if (statistics.PoolEmptyCount > 0)
+            {
+                status.Warnings.Add(string.Format(PoolConstants.Messages.EmptyCountWarningFormat, statistics.PoolEmptyCount));
+                status.WarningCount++;
+            }
+
+            status.IsHealthy = IsHealthy;
+            status.HealthMessage = status.IsHealthy ? PoolConstants.Messages.PoolHealthy : 
+                string.Format(PoolConstants.Messages.PoolWarningsFormat, status.WarningCount, string.Join(", ", status.Warnings));
+
+            return status;
+        }
+
+        #endregion
+
+        #region IPoolMetrics Implementation
+
+        /// <summary>
+        /// Export metrics with tags/labels for dimensional monitoring
+        /// </summary>
+        public Dictionary<string, object> ExportMetrics(Dictionary<string, string>? tags = null)
+        {
+            var metrics = new Dictionary<string, object>
+            {
+                [PoolConstants.Metrics.RetrievedTotal] = statistics.TotalObjectsRetrieved,
+                [PoolConstants.Metrics.ReturnedTotal] = statistics.TotalObjectsReturned,
+                [PoolConstants.Metrics.ActiveCurrent] = ActiveObjects.Count,
+                [PoolConstants.Metrics.AvailableCurrent] = AvailableObjects.Count,
+                [PoolConstants.Metrics.ActivePeak] = statistics.PeakActiveObjects,
+                [PoolConstants.Metrics.EmptyEventsTotal] = statistics.PoolEmptyCount,
+                [PoolConstants.Metrics.UtilizationPercentage] = UtilizationPercentage,
+                [PoolConstants.Metrics.HealthStatus] = IsHealthy ? 1 : 0,
+                [PoolConstants.Metrics.MaxSize] = Configuration.MaxPoolSize == int.MaxValue ? -1 : Configuration.MaxPoolSize,
+                [PoolConstants.Metrics.MaxActive] = Configuration.MaxActiveObjects == int.MaxValue ? -1 : Configuration.MaxActiveObjects,
+                [PoolConstants.Metrics.StartTime] = statistics.StatisticsStartTime,
+                [PoolConstants.Metrics.UptimeSeconds] = (DateTime.UtcNow - statistics.StatisticsStartTime).TotalSeconds
+            };
+
+            // Add a metric to indicate this is a queryable pool
+            metrics["pool_type"] = "queryable";
+
+            if (tags != null)
+            {
+                foreach (var tag in tags)
+                {
+                    metrics[$"{PoolConstants.Metrics.TagPrefix}{tag.Key}"] = tag.Value;
+                }
+            }
+
+            return metrics;
+        }
+
+        /// <summary>
+        /// Reset metrics counters (useful for testing or periodic resets)
+        /// </summary>
+        public void ResetMetrics()
+        {
+            Logger?.LogInformation(PoolConstants.Messages.ResettingMetrics);
+            statistics = new PoolStatistics
+            {
+                CurrentActiveObjects = ActiveObjects.Count,
+                CurrentAvailableObjects = AvailableObjects.Count,
+                PeakActiveObjects = ActiveObjects.Count
+            };
+        }
+
+        /// <summary>
+        /// Gets the metric type for the specified key
+        /// </summary>
+        /// <param name="metricKey">The metric key</param>
+        /// <returns>The metric type</returns>
+        private static string GetMetricType(string metricKey)
+        {
+            return metricKey switch
+            {
+                PoolConstants.Metrics.RetrievedTotal => PoolConstants.MetricTypes.Counter,
+                PoolConstants.Metrics.ReturnedTotal => PoolConstants.MetricTypes.Counter,
+                PoolConstants.Metrics.EmptyEventsTotal => PoolConstants.MetricTypes.Counter,
+                PoolConstants.Metrics.UptimeSeconds => PoolConstants.MetricTypes.Counter,
+                _ => PoolConstants.MetricTypes.Gauge
+            };
+        }
+
+        /// <summary>
+        /// Gets the metric description for the specified key
+        /// </summary>
+        /// <param name="metricKey">The metric key</param>
+        /// <returns>The metric description</returns>
+        private static string GetMetricDescription(string metricKey)
+        {
+            return metricKey switch
+            {
+                PoolConstants.Metrics.RetrievedTotal => "Total number of objects retrieved from the pool",
+                PoolConstants.Metrics.ReturnedTotal => "Total number of objects returned to the pool",
+                PoolConstants.Metrics.ActiveCurrent => "Current number of active objects",
+                PoolConstants.Metrics.AvailableCurrent => "Current number of available objects in the pool",
+                PoolConstants.Metrics.ActivePeak => "Peak number of active objects",
+                PoolConstants.Metrics.EmptyEventsTotal => "Total number of times the pool was empty when requested",
+                PoolConstants.Metrics.UtilizationPercentage => "Pool utilization as a percentage",
+                PoolConstants.Metrics.HealthStatus => "Pool health status (1=healthy, 0=unhealthy)",
+                PoolConstants.Metrics.UptimeSeconds => "Pool uptime in seconds",
+                "pool_type" => "Type of pool (queryable)",
+                _ => "Pool metric"
+            };
+        }
+
+        #endregion
     }
 }
 

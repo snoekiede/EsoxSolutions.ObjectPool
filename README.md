@@ -108,7 +108,8 @@ foreach (var kv in metrics)
 ```
 
 ## Version history:
-* 2.0.0: Async support, performance metrics, Try* methods, Prometheus metrics, improved performance
+* 2.1.0: Added PoolConfiguration, improved health checks, fixed async disposal for the queryable pool. Improved thread-safety for all pools.
+* 2.0.0: Async support, performance metrics, Try* methods, improved performance
 * 1.1.5: Improved thread-safety, dynamic pool throws if no match
 * 1.1.3: Added DynamicObjectPool
 * 1.1.2: Improved threadsafety

@@ -111,7 +111,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             
-            Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedFromPoolActiveActiveAvailableAvailable,
+            Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedFromPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
 
             return new PoolModel<T>(result, this);

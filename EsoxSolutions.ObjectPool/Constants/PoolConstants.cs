@@ -225,7 +225,7 @@ namespace EsoxSolutions.ObjectPool.Constants
             /// </summary>
             /// <remarks>The message template contains placeholders for the number of active and
             /// available objects  in the pool, which can be used for logging or debugging purposes.</remarks>
-            public const string ObjectRetrievedFromPoolActiveActiveAvailableAvailable = "Object retrieved from pool. Active: {Active}, Available: {Available}";
+            public const string ObjectRetrievedFromPoolActiveAvailable = "Object retrieved from pool. Active: {Active}, Available: {Available}";
 
             /// <summary>
             /// Represents an error message indicating that the maximum number of active objects has been reached.
@@ -326,7 +326,7 @@ namespace EsoxSolutions.ObjectPool.Constants
             /// </summary>
             /// <remarks>The message includes a placeholder for the timeout value, which can be
             /// formatted into the log  message to provide additional context about the operation.</remarks>
-            public const string StartingAsyncObjectRetrievalWithQueryAndTimeoutTimeout = "Starting async object retrieval with query and timeout: {Timeout}";
+            public const string StartingAsyncObjectRetrievalWithQueryAndTimeout = "Starting async object retrieval with query and timeout: {Timeout}";
 
             /// <summary>
             /// Represents a message indicating that an object was successfully retrieved using a query asynchronously.
@@ -341,10 +341,30 @@ namespace EsoxSolutions.ObjectPool.Constants
             /// This constant can be used for logging or exception messages to provide detailed  information about the
             /// timeout event.</remarks>
             public const string TimeoutWaitingForObjectMatchingQueryFromPoolAfter = "Timeout waiting for object matching query from pool after {0}";
+
+            /// <summary>
+            /// Represents a message template used to log an attempt to retrieve an object from a pool, including the
+            /// number of available objects.
+            /// </summary>
+            /// <remarks>The message template includes a placeholder for the count of available
+            /// objects in the pool, which can be used to provide additional context in logging scenarios.</remarks>
+            public const string AttemptingToGetObjectFromPoolUsingQueryAvailableCount = "Attempting to get object from pool using query. Available: {Count}";
+
+
+            /// <summary>
+            /// Represents a log message template used when disposing a QueryableObjectPool,  including the number of
+            /// active and available objects at the time of disposal.
+            /// </summary>
+            /// <remarks>This constant is intended for use in logging scenarios where the state of the
+            /// QueryableObjectPool needs to be recorded during its disposal. The placeholders  <c>{Active}</c> and
+            /// <c>{Available}</c> should be replaced with the respective  counts of active and available
+            /// objects.</remarks>
+            public const string DisposingQueryableobjectpoolWithActiveActiveObjectsAndAvailableAvailableObjects = "Disposing QueryableObjectPool with {Active} active objects and {Available} available objects";
+
         }
 
         /// <summary>
-        /// Metric types for Prometheus export
+        /// Metric types for export
         /// </summary>
         public static class MetricTypes
         {

@@ -5,8 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 using EsoxSolutions.ObjectPool.Constants;
 
+
 namespace EsoxSolutions.ObjectPool.Exceptions
 {
+    /// <summary>
+    /// Exception thrown when an object cannot be created from the pool.
+    /// </summary>
     public class UnableToCreateObjectException: Exception
     {
         /// <summary>

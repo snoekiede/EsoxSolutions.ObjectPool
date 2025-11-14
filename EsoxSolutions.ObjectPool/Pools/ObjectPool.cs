@@ -4,6 +4,7 @@ using EsoxSolutions.ObjectPool.Models;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using EsoxSolutions.ObjectPool.Constants;
+using EsoxSolutions.ObjectPool.Metrics;
 
 namespace EsoxSolutions.ObjectPool.Pools
 {
@@ -379,6 +380,16 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             return metrics;
+        }
+
+        /// <summary>
+        /// Convenience method to export metrics in Prometheus exposition format directly from the pool.
+        /// </summary>
+        /// <param name="tags">Optional tags to include as labels.</param>
+        /// <returns>Prometheus exposition formatted text.</returns>
+        public string ExportMetricsPrometheus(Dictionary<string, string>? tags = null)
+        {
+            return PrometheusExporter.ExportMetricsPrometheus(this, tags);
         }
 
         /// <summary>

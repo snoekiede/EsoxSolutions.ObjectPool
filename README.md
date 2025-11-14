@@ -2,7 +2,7 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+ and .NET 9. It supports automatic return of objects, async operations, performance metrics, and flexible configuration. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, and flexible configuration. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
 ## Features
     
@@ -93,6 +93,23 @@ using (var model = pool.GetObject())
     Console.WriteLine(model.Unwrap());
 }
 ```
+
+### Prometheus exporter
+You can export pool metrics in Prometheus exposition format. Use the interface helper or the concrete pool convenience method.
+
+```csharp
+// Using interface default/extension
+var prometheusText = ((IPoolMetrics)pool).ExportMetricsPrometheus();
+
+// Or using concrete pool convenience method
+var prometheusText = pool.ExportMetricsPrometheus();
+
+// With optional tags as labels
+var tags = new Dictionary<string, string> { ["service"] = "order-service", ["env"] = "prod" };
+var prometheusTextWithLabels = pool.ExportMetricsPrometheus(tags);
+```
+
+The exporter emits `HELP`/`TYPE` lines and converts string metrics into `*_info` gauge metrics with a `value` label.
 
 ### Health Monitoring & Metrics
 

@@ -1,26 +1,30 @@
-﻿namespace EsoxSolutions.ObjectPool.Tests.Models
+﻿using System.Collections.Generic;
+
+namespace EsoxSolutions.ObjectPool.Tests.Models
 {
-    public class Car(string make, string model)
+    public class Car
     {
-        public string Make { get; set; } = make;
-        public string Model { get; set; } = model;
+        public string Make { get; set; }
+        public string Model { get; set; }
+
+        public Car(string make, string model)
+        {
+            Make = make;
+            Model = model;
+        }
 
         public static List<Car> GetInitialCars()
         {
-            List<Car> result =
-            [
-                new("Ford", "Focus"),
-                new("Ford", "Fiesta"),
-                new("Ford", "Mondeo"),
-                new("Ford", "Mustang"),
-                new("Citroen", "DS"),
-                new("Citroen", "C1"),
-                new("Citroen", "C2")
-            ];
-
-            return result;
+            return new List<Car>
+            {
+                new Car("Ford", "Focus"),
+                new Car("Ford", "Fiesta"),
+                new Car("Ford", "Mondeo"),
+                new Car("Ford", "Mustang"),
+                new Car("Citroen", "DS"),
+                new Car("Citroen", "C1"),
+                new Car("Citroen", "C2")
+            };
         }
-
-        
     }
 }

@@ -3,7 +3,7 @@
 ## Prerequisites
 
 ### Framework Requirements
-- .NET 8.0 or .NET 9.0
+- .NET 8.0, .NET 9.0 or .NET 10.0
 - Microsoft.Extensions.Logging.Abstractions 8.0.0+
 - Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0+
 
@@ -79,6 +79,27 @@ public class PoolMetricsCollector : BackgroundService
 }
 ```
 
+### Prometheus Exporter
+You can export pool metrics in Prometheus exposition format using the built-in helper. Two options:
+
+1) Use the interface default/extension:
+```csharp
+var prometheusText = ((IPoolMetrics)pool).ExportMetricsPrometheus();
+```
+
+2) Use the convenience method on concrete pools:
+```csharp
+var prometheusText = pool.ExportMetricsPrometheus();
+```
+
+Both accept an optional tag dictionary that will be exported as labels:
+```csharp
+var tags = new Dictionary<string, string> { ["service"] = "order-service", ["env"] = "prod" };
+var prometheusText = pool.ExportMetricsPrometheus(tags);
+```
+
+The exporter emits `HELP`/`TYPE` lines and converts string metrics into `*_info` gauge metrics with a `value` label.
+
 ## Performance Tuning
 
 ### Capacity Planning
@@ -109,4 +130,3 @@ logger.LogInformation("Pool Stats: Active={Active}, Available={Available}, Peak=
 // Export all metrics
 var metrics = pool.ExportMetrics();
 logger.LogInformation("Pool Metrics: {@Metrics}", metrics);
-```

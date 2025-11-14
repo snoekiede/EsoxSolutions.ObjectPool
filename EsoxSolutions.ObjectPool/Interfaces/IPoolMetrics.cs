@@ -1,3 +1,5 @@
+using EsoxSolutions.ObjectPool.Metrics;
+
 namespace EsoxSolutions.ObjectPool.Interfaces
 {
     /// <summary>
@@ -15,7 +17,6 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         /// Reset metrics counters (useful for testing or periodic resets)
         /// </summary>
         void ResetMetrics();
-
 
     }
 }

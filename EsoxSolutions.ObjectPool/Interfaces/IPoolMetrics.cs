@@ -1,5 +1,3 @@
-using EsoxSolutions.ObjectPool.Metrics;
-
 namespace EsoxSolutions.ObjectPool.Interfaces
 {
     /// <summary>

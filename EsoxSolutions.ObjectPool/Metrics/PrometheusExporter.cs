@@ -31,7 +31,7 @@ namespace EsoxSolutions.ObjectPool.Metrics
             foreach (var kv in metrics.Where(k => k.Key.StartsWith(PoolConstants.Metrics.TagPrefix)))
             {
                 var labelName = kv.Key.Substring(PoolConstants.Metrics.TagPrefix.Length);
-                globalLabels[labelName] = kv.Value?.ToString() ?? string.Empty;
+                globalLabels[labelName] = kv.Value.ToString() ?? string.Empty;
             }
 
             // Iterate over metrics and render them
@@ -59,13 +59,7 @@ namespace EsoxSolutions.ObjectPool.Metrics
                 }
 
                 // Handle value types
-                if (kv.Value == null)
-                {
-                    // represent null as NaN
-                    var labelStr = labels.Count > 0 ? "{" + string.Join(",", labels) + "}" : string.Empty;
-                    sb.AppendLine($"{sanitized}{labelStr} NaN");
-                }
-                else if (kv.Value is sbyte || kv.Value is byte || kv.Value is short || kv.Value is ushort || kv.Value is int || kv.Value is uint || kv.Value is long || kv.Value is ulong || kv.Value is float || kv.Value is double || kv.Value is decimal)
+                if (kv.Value is sbyte || kv.Value is byte || kv.Value is short || kv.Value is ushort || kv.Value is int || kv.Value is uint || kv.Value is long || kv.Value is ulong || kv.Value is float || kv.Value is double || kv.Value is decimal)
                 {
                     var numeric = Convert.ToDouble(kv.Value);
                     var labelStr = labels.Count > 0 ? "{" + string.Join(",", labels) + "}" : string.Empty;

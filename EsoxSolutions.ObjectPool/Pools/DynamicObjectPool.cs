@@ -86,7 +86,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="UnableToCreateObjectException">Thrown if the factory fails to create an object or no factory exists</exception>
         public override PoolModel<T> GetObject()
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<>));
 
             // Check max active objects limit
             if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
@@ -119,7 +119,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             // Try to create a new object using the factory
-            T? newObject = null;
+            T? newObject;
             try
             {
                 newObject = this._factory.Invoke();

@@ -82,7 +82,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public virtual PoolModel<T> GetObject()
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
             Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolAvailableCount, AvailableObjects.Count);
 
@@ -165,7 +165,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
             var unwrapped = obj.Unwrap();
             if (!this.ActiveObjects.ContainsKey(unwrapped))
@@ -315,7 +315,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A poolmodel</returns>
         public async Task<PoolModel<T>> GetObjectAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);

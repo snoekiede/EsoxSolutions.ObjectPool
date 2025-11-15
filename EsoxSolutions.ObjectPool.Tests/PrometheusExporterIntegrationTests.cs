@@ -1,10 +1,11 @@
 using EsoxSolutions.ObjectPool.Pools;
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Metrics;
+using Xunit.Abstractions;
 
 namespace EsoxSolutions.ObjectPool.Tests
 {
-    public class PrometheusExporterIntegrationTests
+    public class PrometheusExporterIntegrationTests(ITestOutputHelper testOutputHelper)
     {
         private bool TryParseMetric(string prometheusText, string metricName, out double value, out Dictionary<string, string> labels)
         {
@@ -99,7 +100,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_ValuesMatchPoolState: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_ValuesMatchPoolState: " + ex);
                 throw;
             }
         }
@@ -126,7 +127,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_IncludesProvidedTagsAsLabels: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_IncludesProvidedTagsAsLabels: " + ex);
                 throw;
             }
         }
@@ -137,8 +138,8 @@ namespace EsoxSolutions.ObjectPool.Tests
             try
             {
                 // Arrange
-                var cars = new List<EsoxSolutions.ObjectPool.Tests.Models.Car> { new EsoxSolutions.ObjectPool.Tests.Models.Car("Ford", "F") };
-                var pool = new QueryableObjectPool<EsoxSolutions.ObjectPool.Tests.Models.Car>(cars);
+                var cars = new List<Models.Car> { new("Ford", "F") };
+                var pool = new QueryableObjectPool<Models.Car>(cars);
 
                 // Act
                 var text = pool.ExportMetricsPrometheus();
@@ -152,7 +153,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_StringMetricExportedAsInfoWithValueLabel: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_StringMetricExportedAsInfoWithValueLabel: " + ex);
                 throw;
             }
         }

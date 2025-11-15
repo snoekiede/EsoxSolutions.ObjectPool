@@ -226,17 +226,17 @@ namespace EsoxSolutions.ObjectPool.Tests
                 
             // Test with cancellation
             var cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
                 await pool.GetObjectAsync(cancellationToken: cts.Token));
                 
-            // Test query-based async with timeout
+            // Test query-based async with timeout (use fresh token, not canceled one)
             await Assert.ThrowsAsync<TimeoutException>(async () => 
                 await pool.GetObjectAsync(c => c.Make == "Ford", TimeSpan.FromMilliseconds(100)));
                 
-            // Test query-based async with cancellation
+            // Test query-based async with cancellation (create new CancellationTokenSource)
             cts = new CancellationTokenSource();
-            cts.Cancel();
+            await cts.CancelAsync();
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
                 await pool.GetObjectAsync(c => c.Make == "Ford", cancellationToken: cts.Token));
         }
@@ -521,7 +521,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var stopwatch = Stopwatch.StartNew();
             
             // 1. Regular GetObject
-            using (var obj = pool.GetObject())
+            using (pool.GetObject())
             {
                 // Just get and return
             }
@@ -537,7 +537,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             stopwatch.Restart();
             
             // 3. Query by Make and Model (more selective)
-            using (var obj = pool.GetObject(c => c.Make == "Make1" && c.Model == "Model50"))
+            using (var obj = pool.GetObject(c => c is { Make: "Make1", Model: "Model50" }))
             {
                 // Just get and return (might fail if no such car exists, that's ok)
             }
@@ -553,23 +553,17 @@ namespace EsoxSolutions.ObjectPool.Tests
     }
     
     // Helper class for testing IDisposable implementation
-    public class DisposableCar : IDisposable
+    public class DisposableCar(Action onDispose) : IDisposable
     {
-        private readonly Action _onDispose;
         public string Make { get; set; } = "TestMake";
         public string Model { get; set; } = "TestModel";
         private bool _disposed;
-        
-        public DisposableCar(Action onDispose)
-        {
-            _onDispose = onDispose;
-        }
-        
+
         public void Dispose()
         {
             if (!_disposed)
             {
-                _onDispose?.Invoke();
+                onDispose?.Invoke();
                 _disposed = true;
             }
         }

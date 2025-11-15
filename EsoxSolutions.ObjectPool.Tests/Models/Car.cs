@@ -1,22 +1,14 @@
-﻿using System.Collections.Generic;
-
-namespace EsoxSolutions.ObjectPool.Tests.Models
+﻿namespace EsoxSolutions.ObjectPool.Tests.Models
 {
-    public class Car
+    public class Car(string make, string model)
     {
-        public string Make { get; set; }
-        public string Model { get; set; }
-
-        public Car(string make, string model)
-        {
-            Make = make;
-            Model = model;
-        }
+        public string Make { get; set; } = make;
+        public string Model { get; set; } = model;
 
         public static List<Car> GetInitialCars()
         {
-            return new List<Car>
-            {
+            return
+            [
                 new Car("Ford", "Focus"),
                 new Car("Ford", "Fiesta"),
                 new Car("Ford", "Mondeo"),
@@ -24,7 +16,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Models
                 new Car("Citroen", "DS"),
                 new Car("Citroen", "C1"),
                 new Car("Citroen", "C2")
-            };
+            ];
         }
     }
 }

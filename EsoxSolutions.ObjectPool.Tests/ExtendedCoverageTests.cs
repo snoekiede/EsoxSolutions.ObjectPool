@@ -371,7 +371,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             
             // Assert
             Assert.Equal(0, pool.AvailableObjectCount);
-            Assert.True(pool.TryGetObject(out _) == false);
+            Assert.True(!pool.TryGetObject(out _));
         }
 
         [Fact]

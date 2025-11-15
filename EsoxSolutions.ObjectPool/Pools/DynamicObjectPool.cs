@@ -77,31 +77,78 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
         }
+        
         /// <summary>
         /// Returns an object from the pool. If no objects are available, an exception is thrown.
         /// </summary>
-        /// <returns></returns>
-        /// <exception cref="NoObjectsInPoolException">Thrown if no object could be found</exception>
+        /// <returns>A PoolModel wrapping the pooled object</returns>
+        /// <exception cref="NoObjectsInPoolException">Thrown if no object could be found and no factory is available</exception>
+        /// <exception cref="UnableToCreateObjectException">Thrown if the factory fails to create an object or no factory exists</exception>
         public override PoolModel<T> GetObject()
         {
-            T? result;
+            if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<T>));
 
-            // No lock needed, use concurrent collections
-            if (this.AvailableObjects.IsEmpty)
+            // Check max active objects limit
+            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
-                result = this._factory?.Invoke();
-                if (result == null)
+                throw new InvalidOperationException(string.Format(PoolConstants.Messages.MaxActiveLimitFormat, 
+                    Configuration.MaxActiveObjects));
+            }
+
+            // Try to get an existing object first
+            if (this.AvailableObjects.TryPop(out var result))
+            {
+                this.ActiveObjects.TryAdd(result, 0);
+                statistics.TotalObjectsRetrieved++;
+                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
                 {
-                    throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
+                    statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
                 }
-                this.AvailableObjects.Push(result);
+                return new PoolModel<T>(result, this);
             }
-            if (!this.AvailableObjects.TryPop(out result!))
+
+            // No objects available - check if we have a factory
+            if (this._factory == null)
             {
-                throw new NoObjectsInPoolException(PoolConstants.Messages.NoAvailableObjects);
+                // No factory available to create new objects
+                statistics.PoolEmptyCount++;
+                Logger?.LogWarning(PoolConstants.Messages.CannotCreateObject);
+                throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
-            this.ActiveObjects.TryAdd(result, 0);
-            return new PoolModel<T>(result, this);
+
+            // Try to create a new object using the factory
+            T? newObject = null;
+            try
+            {
+                newObject = this._factory.Invoke();
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogError(ex, PoolConstants.Messages.CannotCreateObject);
+                throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject, ex);
+            }
+
+            if (newObject == null)
+            {
+                throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
+            }
+
+            // Add directly to active objects without pushing to available first
+            this.ActiveObjects.TryAdd(newObject, 0);
+            statistics.TotalObjectsRetrieved++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
+            {
+                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
+            }
+            
+            Logger?.LogDebug("Created new object dynamically. Active: {Active}, Available: {Available}", 
+                ActiveObjects.Count, AvailableObjects.Count);
+            
+            return new PoolModel<T>(newObject, this);
         }
     }
 }

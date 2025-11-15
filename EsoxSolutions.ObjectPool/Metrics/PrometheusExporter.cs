@@ -91,8 +91,7 @@ namespace EsoxSolutions.ObjectPool.Metrics
                     sb.AppendLine($"# HELP {infoName} Information label for {sanitized}");
                     sb.AppendLine($"# TYPE {infoName} gauge");
 
-                    var labelPairs = new List<string>(labels);
-                    labelPairs.Add($"value=\"{EscapeLabelValue(strVal)}\"");
+                    var labelPairs = new List<string>(labels) { $"value=\"{EscapeLabelValue(strVal)}\"" };
                     var labelStr = labelPairs.Count > 0 ? "{" + string.Join(",", labelPairs) + "}" : string.Empty;
                     sb.AppendLine($"{infoName}{labelStr} 1");
                 }
@@ -110,8 +109,7 @@ namespace EsoxSolutions.ObjectPool.Metrics
                         sb.AppendLine($"# HELP {infoName} Information label for {sanitized}");
                         sb.AppendLine($"# TYPE {infoName} gauge");
 
-                        var labelPairs = new List<string>(labels);
-                        labelPairs.Add($"value=\"{EscapeLabelValue(kv.Value.ToString() ?? string.Empty)}\"");
+                        var labelPairs = new List<string>(labels) { $"value=\"{EscapeLabelValue(kv.Value.ToString() ?? string.Empty)}\"" };
                         var labelStr = labelPairs.Count > 0 ? "{" + string.Join(",", labelPairs) + "}" : string.Empty;
                         sb.AppendLine($"{infoName}{labelStr} 1");
                     }

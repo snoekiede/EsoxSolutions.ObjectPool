@@ -23,6 +23,7 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <IncludeSymbols>True</IncludeSymbols>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+	  <LangVersion>14</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>

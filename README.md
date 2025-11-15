@@ -168,21 +168,21 @@ foreach (var kv in metrics)
 ## Thread-Safety
 
 All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `ConcurrentDictionary<T, byte>`:
-- ? Tested with 500 concurrent threads
-- ? Race condition free
-- ? No blocking locks in hot paths
-- ? Atomic operations for critical sections
+- Tested with 500 concurrent threads
+- Race condition free
+- No blocking locks in hot paths
+- Atomic operations for critical sections
 
 ## Version History
 
 ### 3.0.0 (Current) - November 2025
-- ? Added support for .NET 10
-- ? 20-40% performance improvement for queryable pool operations
-- ?? **Critical fix**: Eliminated race condition in `DynamicObjectPool` under high concurrency
-- ?? Modern C# 14 patterns: collection expressions, primary constructors, sealed classes
-- ?? 100% test pass rate (83/83 tests)
-- ?? Added Prometheus metrics exporter
-- ?? Production-ready certification
+- Added support for .NET 10
+- 20-40% performance improvement for queryable pool operations
+- **Critical fix**: Eliminated race condition in `DynamicObjectPool` under high concurrency
+- Modern C# 14 patterns: collection expressions, primary constructors, sealed classes
+- 100% test pass rate (83/83 tests)
+- Added Prometheus metrics exporter
+- Production-ready certification
 
 ### 2.1.0
 - Added PoolConfiguration for flexible pool behavior

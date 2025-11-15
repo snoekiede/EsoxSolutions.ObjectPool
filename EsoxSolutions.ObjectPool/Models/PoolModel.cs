@@ -6,7 +6,7 @@ namespace EsoxSolutions.ObjectPool.Models
     /// A wrapper for the object pool
     /// </summary>
     /// <typeparam name="T">The type of the object to be wrapped</typeparam>
-    public class PoolModel<T> : IDisposable
+    public sealed class PoolModel<T> : IDisposable
     {
         private readonly T _value;
         private readonly IObjectPool<T> _pool;
@@ -19,8 +19,11 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <param name="pool">The object pool to which this PoolModel belongs</param>
         public PoolModel(T value, IObjectPool<T> pool)
         {
-            this._value = value ?? throw new ArgumentNullException(nameof(value));
-            this._pool = pool ?? throw new ArgumentNullException(nameof(pool));
+            ArgumentNullException.ThrowIfNull(value);
+            ArgumentNullException.ThrowIfNull(pool);
+            
+            this._value = value;
+            this._pool = pool;
         }
 
         /// <summary>
@@ -30,8 +33,7 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="ObjectDisposedException">Thrown when trying to access a disposed object</exception>
         public T Unwrap()
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(PoolModel<T>));
+            ObjectDisposedException.ThrowIf(_disposed, this);
             return this._value;
         }
 

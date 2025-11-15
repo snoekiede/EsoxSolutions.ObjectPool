@@ -14,13 +14,11 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
     public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable where T : notnull
     {
-        
-        
-
         /// <summary>
         /// A concurrent stack of available objects for efficient O(1) operations
         /// </summary>
         protected ConcurrentStack<T> AvailableObjects;
+        
         /// <summary>
         /// A concurrent dictionary of active objects for efficient O(1) lookups
         /// </summary>
@@ -45,6 +43,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// Flag to track if the pool has been disposed
         /// </summary>
         protected bool Disposed;
+        
         /// <summary>
         /// Constructor for the object pool
         /// </summary>
@@ -72,7 +71,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                     initialObjects.Count, this.Configuration.MaxPoolSize));
             }
 
-            
             logger?.LogInformation(PoolConstants.Messages.ObjectpoolCreatedWithInitialcountObjectsMaxpoolsizeMaxactive,
                 initialObjects.Count, this.Configuration.MaxPoolSize, this.Configuration.MaxActiveObjects);
         }
@@ -84,9 +82,8 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public virtual PoolModel<T> GetObject()
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
-            
             Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolAvailableCount, AvailableObjects.Count);
 
             if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
@@ -111,7 +108,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
             }
 
-            
             Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedFromPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
 
@@ -169,7 +165,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
             var unwrapped = obj.Unwrap();
             if (!this.ActiveObjects.ContainsKey(unwrapped))
@@ -319,7 +315,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A poolmodel</returns>
         public async Task<PoolModel<T>> GetObjectAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
@@ -405,7 +401,6 @@ namespace EsoxSolutions.ObjectPool.Pools
                 PeakActiveObjects = ActiveObjects.Count
             };
         }
-
 
         private static string GetMetricDescription(string metricKey)
         {

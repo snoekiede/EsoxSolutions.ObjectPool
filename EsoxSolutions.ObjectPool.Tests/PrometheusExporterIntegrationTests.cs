@@ -1,14 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using Xunit;
 using EsoxSolutions.ObjectPool.Pools;
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Metrics;
+using Xunit.Abstractions;
 
 namespace EsoxSolutions.ObjectPool.Tests
 {
-    public class PrometheusExporterIntegrationTests
+    public class PrometheusExporterIntegrationTests(ITestOutputHelper testOutputHelper)
     {
         private bool TryParseMetric(string prometheusText, string metricName, out double value, out Dictionary<string, string> labels)
         {
@@ -17,7 +14,7 @@ namespace EsoxSolutions.ObjectPool.Tests
 
             if (string.IsNullOrEmpty(prometheusText)) return false;
 
-            var lines = prometheusText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = prometheusText.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries);
             string? found = null;
             foreach (var line in lines)
             {
@@ -49,10 +46,10 @@ namespace EsoxSolutions.ObjectPool.Tests
                 {
                     var labelsPart = beforeValue.Substring(idxBraceStart + 1, idxBraceEnd - idxBraceStart - 1);
                     // split on commas not inside quotes - simple approach: split on ","
-                    var parts = labelsPart.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    var parts = labelsPart.Split([','], StringSplitOptions.RemoveEmptyEntries);
                     foreach (var part in parts)
                     {
-                        var kv = part.Split(new[] { '=' }, 2);
+                        var kv = part.Split(['='], 2);
                         if (kv.Length != 2) continue;
                         var k = kv[0].Trim();
                         var v = kv[1].Trim();
@@ -103,7 +100,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_ValuesMatchPoolState: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_ValuesMatchPoolState: " + ex);
                 throw;
             }
         }
@@ -122,7 +119,7 @@ namespace EsoxSolutions.ObjectPool.Tests
                 var text = pool.ExportMetricsPrometheus(tags);
 
                 // Assert the retrieved_total metric has labels
-                Assert.True(TryParseMetric(text, "pool_objects_retrieved_total", out var retrieved, out var labels));
+                Assert.True(TryParseMetric(text, "pool_objects_retrieved_total", out _, out var labels));
                 Assert.Contains("service", labels.Keys);
                 Assert.Contains("zone", labels.Keys);
                 Assert.Equal("integ-svc", labels["service"]);
@@ -130,7 +127,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_IncludesProvidedTagsAsLabels: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_IncludesProvidedTagsAsLabels: " + ex);
                 throw;
             }
         }
@@ -141,8 +138,8 @@ namespace EsoxSolutions.ObjectPool.Tests
             try
             {
                 // Arrange
-                var cars = new List<EsoxSolutions.ObjectPool.Tests.Models.Car> { new EsoxSolutions.ObjectPool.Tests.Models.Car("Ford", "F") };
-                var pool = new QueryableObjectPool<EsoxSolutions.ObjectPool.Tests.Models.Car>(cars);
+                var cars = new List<Models.Car> { new("Ford", "F") };
+                var pool = new QueryableObjectPool<Models.Car>(cars);
 
                 // Act
                 var text = pool.ExportMetricsPrometheus();
@@ -156,7 +153,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception in Integration_ExportMetricsPrometheus_StringMetricExportedAsInfoWithValueLabel: " + ex);
+                testOutputHelper.WriteLine("Exception in Integration_ExportMetricsPrometheus_StringMetricExportedAsInfoWithValueLabel: " + ex);
                 throw;
             }
         }

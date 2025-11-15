@@ -1,6 +1,3 @@
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using Xunit;
 using EsoxSolutions.ObjectPool.Pools;
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Metrics;
@@ -50,8 +47,8 @@ namespace EsoxSolutions.ObjectPool.Tests
         public void ExportMetricsPrometheus_ExportsStringMetricAsInfo()
         {
             // Arrange
-            var initialCars = new List<EsoxSolutions.ObjectPool.Tests.Models.Car> { new EsoxSolutions.ObjectPool.Tests.Models.Car("a", "b") };
-            var pool = new QueryableObjectPool<EsoxSolutions.ObjectPool.Tests.Models.Car>(initialCars);
+            var initialCars = new List<Models.Car> { new("a", "b") };
+            var pool = new QueryableObjectPool<Models.Car>(initialCars);
 
             // Act
             var txt = ((IPoolMetrics)pool).ExportMetricsPrometheus();

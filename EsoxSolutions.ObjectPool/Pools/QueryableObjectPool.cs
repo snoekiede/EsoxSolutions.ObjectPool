@@ -48,7 +48,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// The constructor for the queryable object pool
         /// </summary>
         /// <param name="initialObjects">the list of initial objects</param>
-        public QueryableObjectPool(List<T> initialObjects) : this(initialObjects, new PoolConfiguration(), null)
+        public QueryableObjectPool(List<T> initialObjects) : this(initialObjects, new PoolConfiguration())
         {
         }
 
@@ -101,7 +101,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised when no object could be found</exception>
         public virtual PoolModel<T> GetObject()
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
             
             Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolAvailableCount, AvailableObjects.Count);
             
@@ -186,7 +186,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
         public void ReturnObject(PoolModel<T> obj)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
             
             var unwrapped = obj.Unwrap();
             if (!this.ActiveObjects.ContainsKey(unwrapped))
@@ -239,7 +239,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <exception cref="NoObjectsInPoolException">Thrown when no objects could be found</exception>
         public PoolModel<T> GetObject(Func<T, bool> query)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
 
             Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolUsingQueryAvailableCount, AvailableObjects.Count);
             
@@ -324,95 +324,72 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>True if a matching object was retrieved, false otherwise</returns>
         public bool TryGetObject(Func<T, bool> query, out PoolModel<T>? poolModel)
         {
-            try
+            poolModel = null;
+            
+            if (Disposed)
             {
-                if (Disposed)
-                {
-                    poolModel = null;
-                    return false;
-                }
-                
-                Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectWithQueryFromPoolAvailableCount, AvailableObjects.Count);
-                
-                if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
-                {
-                    Logger?.LogDebug(PoolConstants.Messages.CannotGetObjectActiveObjectsLimitMaxactiveReached, Configuration.MaxActiveObjects);
-                    poolModel = null;
-                    return false;
-                }
-                
-                // Create a snapshot of available objects
-                var availableObjects = this.AvailableObjects.ToArray();
-                
-                // First check if any object matches the query
-                var matchingObject = availableObjects.FirstOrDefault(query);
-                if (matchingObject == null || EqualityComparer<T>.Default.Equals(matchingObject, default))
-                {
-                    Logger?.LogDebug(PoolConstants.Messages.NoObjectsInPoolMatchTheQuery);
-                    poolModel = null;
-                    return false;
-                }
-                
-                // Try to find and remove a matching object from the available objects
-                bool foundMatch = false;
-                T foundObject = default!;
-                
-                // Create a temporary stack to hold non-matching objects
-                var tempStack = new ConcurrentStack<T>();
-                
-                // Pop items from available stack until we find a match or empty the stack
-                while (!foundMatch && this.AvailableObjects.TryPop(out var item))
-                {
-                    if (!foundMatch && query(item))
-                    {
-                        // Found a matching object
-                        foundMatch = true;
-                        foundObject = item;
-                    }
-                    else
-                    {
-                        // Not a match, push to temp stack
-                        tempStack.Push(item);
-                    }
-                }
-                
-                // Push all the non-matching items back to the available stack
-                foreach (var item in tempStack)
-                {
-                    this.AvailableObjects.Push(item);
-                }
-                
-                if (!foundMatch)
-                {
-                    // No matching object was available (might have been taken by another thread)
-                    Logger?.LogDebug(PoolConstants.Messages.NoMatchingObjectAvailableRaceConditionTakenByAnotherThread);
-                    poolModel = null;
-                    return false;
-                }
-                
-                // Add to active objects and return
-                this.ActiveObjects.TryAdd(foundObject, 0);
-                
-                statistics.TotalObjectsRetrieved++;
-                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
-                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-                if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-                {
-                    statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-                }
-                
-                poolModel = new PoolModel<T>(foundObject, this);
-                Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedSuccessfullyActiveAvailable, 
-                    ActiveObjects.Count, AvailableObjects.Count);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                // Handle any unexpected errors gracefully
-                Logger?.LogError(ex, PoolConstants.Messages.ErrorOccurredWhileTryingToGetObjectWithQuery);
-                poolModel = null;
                 return false;
             }
+            
+            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
+            {
+                Logger?.LogDebug(PoolConstants.Messages.CannotGetObjectActiveObjectsLimitMaxactiveReached, Configuration.MaxActiveObjects);
+                return false;
+            }
+            
+            // Try to find and remove a matching object directly from the stack
+            T? foundObject = default;
+            bool foundMatch = false;
+            
+            // Create a temporary stack to hold non-matching objects
+            var tempStack = new ConcurrentStack<T>();
+            
+            // Pop items from available stack until we find a match or empty the stack
+            while (!foundMatch && this.AvailableObjects.TryPop(out var item))
+            {
+                if (query(item))
+                {
+                    // Found a matching object
+                    foundMatch = true;
+                    foundObject = item;
+                    break; // Exit loop immediately
+                }
+                
+                // Not a match, push to temp stack
+                tempStack.Push(item);
+            }
+            
+            // Push all the non-matching items back to the available stack in bulk
+            if (!tempStack.IsEmpty)
+            {
+                // More efficient: Push range instead of individual pushes
+                this.AvailableObjects.PushRange(tempStack.ToArray());
+            }
+            
+            if (!foundMatch)
+            {
+                Logger?.LogDebug(PoolConstants.Messages.NoMatchingObjectAvailableRaceConditionTakenByAnotherThread);
+                return false;
+            }
+            
+            // Add to active objects and return
+            this.ActiveObjects.TryAdd(foundObject!, 0);
+            
+            // Update statistics (thread-safe increments)
+            statistics.TotalObjectsRetrieved++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+            
+            // Update peak with simple comparison (good enough for statistics)
+            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
+            {
+                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
+            }
+            
+            poolModel = new PoolModel<T>(foundObject!, this);
+            Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedSuccessfullyActiveAvailable, 
+                ActiveObjects.Count, AvailableObjects.Count);
+            return true;
         }
 
         /// <summary>
@@ -423,7 +400,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A poolmodel</returns>
         public async Task<PoolModel<T>> GetObjectAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
             
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
@@ -461,7 +438,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A poolmodel</returns>
         public async Task<PoolModel<T>> GetObjectAsync(Func<T, bool> query, TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
-            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<T>));
+            if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
             
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
             var deadline = DateTime.UtcNow.Add(effectiveTimeout);
@@ -589,11 +566,10 @@ namespace EsoxSolutions.ObjectPool.Pools
                 [PoolConstants.Metrics.MaxSize] = Configuration.MaxPoolSize == int.MaxValue ? -1 : Configuration.MaxPoolSize,
                 [PoolConstants.Metrics.MaxActive] = Configuration.MaxActiveObjects == int.MaxValue ? -1 : Configuration.MaxActiveObjects,
                 [PoolConstants.Metrics.StartTime] = statistics.StatisticsStartTime,
-                [PoolConstants.Metrics.UptimeSeconds] = (DateTime.UtcNow - statistics.StatisticsStartTime).TotalSeconds
+                [PoolConstants.Metrics.UptimeSeconds] = (DateTime.UtcNow - statistics.StatisticsStartTime).TotalSeconds,
+                // Add a metric to indicate this is a queryable pool
+                ["pool_type"] = "queryable"
             };
-
-            // Add a metric to indicate this is a queryable pool
-            metrics["pool_type"] = "queryable";
 
             if (tags != null)
             {

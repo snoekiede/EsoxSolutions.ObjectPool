@@ -10,14 +10,14 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
     <PackageTags>objectpool;threadsafe;async;performance;metrics</PackageTags>
-    <AssemblyVersion>3.0.0</AssemblyVersion>
-    <FileVersion>3.0.0</FileVersion>
+    <AssemblyVersion>3.0.1</AssemblyVersion>
+    <FileVersion>3.0.1</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Threadsafe Object pool for .NET with async Support</Title>
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>Version 3.0: Added support for .NET 10 and Prometheus</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>3.0.0</Version>
+    <Version>3.0.1</Version>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>C:\temp\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>

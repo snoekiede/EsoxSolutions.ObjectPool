@@ -6,7 +6,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.0.3   | :white_check_mark: |
+| 3.0.0   | :white_check_mark: |
+| 2.0.3   | :x: |
 | 1.5.x   | :x:                |
 
 

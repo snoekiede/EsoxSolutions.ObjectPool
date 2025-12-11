@@ -1,4 +1,6 @@
 # EsoxSolutions.ObjectPool
+## Warning
+As of the 1st of January 2026 this package will no longer be maintained, as similar functionality has already become part of the standard .NET framework.
 
 ## Overview
 

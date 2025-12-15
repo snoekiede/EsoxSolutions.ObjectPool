@@ -2,7 +2,7 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool v3.1 includes first-class support for ASP.NET Core and Generic Host dependency injection, making it easy to register and configure object pools in your applications.
+EsoxSolutions.ObjectPool v3.1 includes first-class support for ASP.NET Core and Generic Host dependency injection, making it easy to register and configure object pools in your applications. The library also includes full integration with ASP.NET Core Health Checks for production monitoring.
 
 ## Installation
 
@@ -10,7 +10,9 @@ EsoxSolutions.ObjectPool v3.1 includes first-class support for ASP.NET Core and 
 dotnet add package EsoxSolutions.ObjectPool
 ```
 
-The package includes `Microsoft.Extensions.DependencyInjection.Abstractions` for DI support.
+The package includes:
+- `Microsoft.Extensions.DependencyInjection.Abstractions` for DI support
+- `Microsoft.Extensions.Diagnostics.HealthChecks` for health check integration
 
 ## Quick Start
 
@@ -45,6 +47,283 @@ public class MyService
         return await client.GetStringAsync(url);
     }
 }
+```
+
+## ASP.NET Core Health Checks Integration
+
+### Basic Health Check Setup
+
+```csharp
+using EsoxSolutions.ObjectPool.DependencyInjection;
+using EsoxSolutions.ObjectPool.HealthChecks;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools
+builder.Services.AddObjectPool<HttpClient>(b => b
+    .WithFactory(() => new HttpClient())
+    .WithMaxSize(100));
+
+builder.Services.AddObjectPool<DbConnection>(b => b
+    .WithFactory(() => new SqlConnection(connectionString))
+    .WithMaxSize(50));
+
+// Register health checks for pools
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>("http-client-pool")
+    .AddObjectPoolHealthCheck<DbConnection>("database-pool");
+
+var app = builder.Build();
+
+// Add health check endpoints
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.Run();
+```
+
+### Health Check Response Example
+
+```json
+{
+  "status": "Healthy",
+  "totalDuration": "00:00:00.0123456",
+  "entries": {
+    "http-client-pool": {
+      "status": "Healthy",
+      "description": "Pool is healthy",
+      "data": {
+        "utilization_percentage": 25.0,
+        "available_objects": 75,
+        "active_objects": 25,
+        "peak_active": 32,
+        "total_retrieved": 1523,
+        "total_returned": 1498,
+        "pool_empty_events": 0,
+        "last_checked": "2025-01-15T10:30:00Z"
+      }
+    },
+    "database-pool": {
+      "status": "Degraded",
+      "description": "Pool is degraded: High utilization: 82.5%",
+      "data": {
+        "utilization_percentage": 82.5,
+        "available_objects": 8,
+        "active_objects": 42,
+        "peak_active": 48,
+        "total_retrieved": 5231,
+        "total_returned": 5189,
+        "pool_empty_events": 3,
+        "last_checked": "2025-01-15T10:30:00Z"
+      }
+    }
+  }
+}
+```
+
+### Custom Health Check Thresholds
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<DbConnection>(
+        "database-pool",
+        configureOptions: options =>
+        {
+            options.DegradedUtilizationThreshold = 70.0;  // Default: 75%
+            options.UnhealthyUtilizationThreshold = 90.0; // Default: 95%
+        });
+```
+
+### With Custom Tags and Failure Status
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>(
+        "http-client-pool",
+        failureStatus: HealthStatus.Degraded,  // Report as Degraded instead of Unhealthy
+        tags: new[] { "ready", "live", "critical" },
+        timeout: TimeSpan.FromSeconds(5));
+```
+
+### Queryable Pool Health Checks
+
+```csharp
+builder.Services.AddQueryableObjectPool<Car>(b => b
+    .AsQueryable()
+    .WithInitialObjects(cars));
+
+builder.Services.AddHealthChecks()
+    .AddQueryablePoolHealthCheck<Car>("car-pool");
+```
+
+### Multiple Pools with Different Endpoints
+
+```csharp
+// Register health checks with different tags
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>(
+        "http-client-pool",
+        tags: new[] { "ready" })
+    .AddObjectPoolHealthCheck<DbConnection>(
+        "database-pool",
+        tags: new[] { "ready", "live" })
+    .AddObjectPoolHealthCheck<CacheConnection>(
+        "cache-pool",
+        tags: new[] { "live" });
+
+// Map different endpoints
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+```
+
+### Integration with Kubernetes
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// ... register pools and health checks ...
+
+var app = builder.Build();
+
+// Liveness probe - basic application health
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live")
+});
+
+// Readiness probe - ready to accept traffic
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var json = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                data = e.Value.Data
+            })
+        });
+        await context.Response.WriteAsync(json);
+    }
+});
+
+app.Run();
+```
+
+#### Kubernetes Deployment YAML
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      containers:
+      - name: myapp
+        image: myapp:latest
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+### Health Check Dashboard
+
+```csharp
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// ... register pools and health checks ...
+
+// Add Health Checks UI
+builder.Services.AddHealthChecksUI()
+    .AddInMemoryStorage();
+
+var app = builder.Build();
+
+// Detailed health check endpoint with UI response writer
+app.MapHealthChecks("/healthz", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+// Health Checks UI
+app.MapHealthChecksUI(options => options.UIPath = "/health-ui");
+
+app.Run();
+```
+
+### Monitoring Pool Health Programmatically
+
+```csharp
+public class PoolMonitoringService : BackgroundService
+{
+    private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<PoolMonitoringService> _logger;
+    
+    public PoolMonitoringService(
+        IServiceProvider serviceProvider,
+        ILogger<PoolMonitoringService> logger)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+    }
+    
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var healthCheckService = scope.ServiceProvider
+                .GetRequiredService<HealthCheckService>();
+            
+            var result = await healthCheckService.CheckHealthAsync(stoppingToken);
+            
+            if (result.Status != HealthStatus.Healthy)
+            {
+                _logger.LogWarning(
+                    "Pool health check failed: {Status}. Details: {@Entries}",
+                    result.Status,
+                    result.Entries);
+            }
+            
+            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+        }
+    }
+}
+
+// Register the service
+builder.Services.AddHostedService<PoolMonitoringService>();
 ```
 
 ## Configuration Options
@@ -163,6 +442,10 @@ services.AddDynamicObjectPool<SqlConnection>(
         };
     });
 
+// Add health check
+services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<SqlConnection>("database-connection-pool");
+
 // Usage in a service
 public class DataService
 {
@@ -211,6 +494,10 @@ services.AddObjectPool<HttpClient>(builder => builder
     .WithMaxSize(50)
     .WithMaxActiveObjects(25)
     .WithValidation(client => client.DefaultRequestHeaders != null));
+
+// Add health check
+services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>("http-client-pool");
 
 // Usage in a service
 public class ApiService
@@ -283,6 +570,10 @@ builder.Services.AddObjectPool<HttpClient>(b => b
     .WithFactory(() => new HttpClient())
     .WithMaxSize(100));
 
+// Register health checks
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>();
+
 builder.Services.AddScoped<WeatherService>();
 
 var app = builder.Build();
@@ -292,6 +583,8 @@ app.MapGet("/weather/{city}", async (string city, WeatherService service) =>
     var weather = await service.GetWeatherAsync(city);
     return Results.Ok(weather);
 });
+
+app.MapHealthChecks("/health");
 
 app.Run();
 ```
@@ -326,28 +619,6 @@ public class DataController : ControllerBase
         
         return Ok(data);
     }
-}
-```
-
-## Health Monitoring
-
-The pools support health monitoring which can be integrated with ASP.NET Core health checks:
-
-```csharp
-// Check pool health
-var pool = serviceProvider.GetRequiredService<IObjectPool<HttpClient>>();
-var health = ((IPoolHealth)pool).GetHealthStatus();
-
-if (!health.IsHealthy)
-{
-    _logger.LogWarning("Pool unhealthy: {Message}", health.HealthMessage);
-}
-
-// Get metrics
-var metrics = ((IPoolMetrics)pool).ExportMetrics();
-foreach (var (key, value) in metrics)
-{
-    _logger.LogInformation("{Key}: {Value}", key, value);
 }
 ```
 
@@ -411,6 +682,14 @@ services.AddObjectPool<MyClass>(builder => builder
 // - Pool empty events
 ```
 
+### 5. Health Check Best Practices
+
+- **Use appropriate tags** for liveness vs. readiness probes
+- **Set custom thresholds** based on your application's requirements
+- **Monitor health check metrics** in production
+- **Configure timeouts** to prevent hanging health checks
+- **Include pool health in overall application health**
+
 ## Performance Tips
 
 1. **Pre-populate pools** for warm-start scenarios
@@ -418,6 +697,7 @@ services.AddObjectPool<MyClass>(builder => builder
 3. **Size pools appropriately** - too small causes contention, too large wastes memory
 4. **Monitor metrics** in production to tune configuration
 5. **Use `TryGetObject`** in high-throughput scenarios to avoid exceptions
+6. **Enable health checks** for production monitoring and alerting
 
 ## Migration from Manual Management
 
@@ -469,6 +749,6 @@ public class MyService
 
 ## See Also
 
-- [Main README](../README.md)
-- [Deployment Guide](../DEPLOYMENT.md)
-- [Performance Benchmarks](BENCHMARKS.md)
+- [Main README](README.md)
+- [Deployment Guide](DEPLOYMENT.md)
+- [ASP.NET Core Health Checks Documentation](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks)

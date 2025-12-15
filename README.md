@@ -2,15 +2,17 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, and **first-class dependency injection support**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection Integration
+### ?? Dependency Injection & Health Checks
 - **First-class ASP.NET Core support** with fluent configuration API
+- **ASP.NET Core Health Checks integration** for production monitoring
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
+- **Kubernetes-ready** with liveness and readiness probe support
 - See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for complete guide
 
 ### Previous Updates (v3.0)
@@ -33,13 +35,14 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **Better statistics**: More accurate tracking under concurrent load
 
 #### ? Quality Assurance
-- **100% test success rate**: All 95 tests passing (83 original + 12 DI tests)
+- **100% test success rate**: All 104 tests passing (83 original + 12 DI + 9 health check tests)
 - **Stress tested**: Verified with 500 concurrent threads on 100 objects
 - **Production ready**: Comprehensive validation across .NET 8, 9, and 10
 
 ## Features
     
 - **?? Dependency Injection** - First-class ASP.NET Core and Generic Host support
+- **????? Health Checks** - ASP.NET Core Health Checks integration for monitoring
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -53,18 +56,63 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## Quick Start
 
-### With Dependency Injection (Recommended)
+### With Dependency Injection & Health Checks (Recommended)
 
 ```csharp
 using EsoxSolutions.ObjectPool.DependencyInjection;
+using EsoxSolutions.ObjectPool.HealthChecks;
 
-// In Program.cs
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools
 builder.Services.AddObjectPool<HttpClient>(pool => pool
     .WithFactory(() => new HttpClient())
     .WithMaxSize(100)
     .WithMaxActiveObjects(50));
 
-// In your service
+builder.Services.AddObjectPool<DbConnection>(pool => pool
+    .WithFactory(() => new SqlConnection(connectionString))
+    .WithMaxSize(50));
+
+// Register health checks
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>("http-client-pool")
+    .AddObjectPoolHealthCheck<DbConnection>("database-pool");
+
+var app = builder.Build();
+
+// Add health check endpoints
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
+app.Run();
+```
+
+**Health Check Response:**
+```json
+{
+  "status": "Healthy",
+  "entries": {
+    "http-client-pool": {
+      "status": "Healthy",
+      "data": {
+        "utilization_percentage": 25.0,
+        "available_objects": 75,
+        "active_objects": 25,
+        "total_retrieved": 1523,
+        "total_returned": 1498
+      }
+    }
+  }
+}
+```
+
+### In Your Service
+
+```csharp
 public class MyService
 {
     private readonly IObjectPool<HttpClient> _clientPool;
@@ -78,16 +126,18 @@ public class MyService
     {
         using var pooledClient = _clientPool.GetObject();
         var client = pooledClient.Unwrap();
-        // Use client...
+        // Use client - automatically returned on dispose
     }
 }
 ```
 
 **See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for comprehensive examples including:**
+- ASP.NET Core Health Checks setup
+- Kubernetes liveness/readiness probes
+- Custom health check thresholds
 - Database connection pooling
 - HTTP client pooling
 - Multi-tenant scenarios
-- ASP.NET Core integration
 - Configuration best practices
 
 ### Direct Instantiation
@@ -226,11 +276,13 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ### 3.1.0 (Current) - January 2025
 - ? **New**: First-class dependency injection support for ASP.NET Core
+- ? **New**: ASP.NET Core Health Checks integration with custom thresholds
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
-- ?? Added comprehensive DI documentation and examples
-- ?? 95/95 tests passing (83 original + 12 DI tests)
+- ? **New**: Kubernetes liveness and readiness probe support
+- ?? Added comprehensive DI and Health Checks documentation
+- ?? 104/104 tests passing (83 original + 12 DI + 9 health check tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10
@@ -268,7 +320,7 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Documentation
 
-- **[Dependency Injection Guide](DEPENDENCY_INJECTION.md)** - Complete DI integration guide with examples
+- **[Dependency Injection & Health Checks Guide](DEPENDENCY_INJECTION.md)** - Complete DI and health check integration guide
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment best practices
 - **[Examples](examples/)** - Code samples and use cases
 
@@ -278,6 +330,7 @@ This library is production-ready and suitable for:
 - ? High-traffic web applications (ASP.NET Core)
 - ? Microservices architectures
 - ? Cloud deployments (Azure, AWS, Kubernetes)
+- ? Container orchestration (Docker, Kubernetes)
 - ? Enterprise systems
 - ? Real-time applications
 - ? Database connection pooling

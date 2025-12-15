@@ -57,7 +57,11 @@ public class CircuitBreaker : IDisposable
         // Check if circuit allows operation
         if (!TryAcquirePermission())
         {
-            _statistics.RejectedOperations++;
+            lock (_stateLock)
+            {
+                _statistics.RejectedOperations++;
+            }
+
             throw new CircuitBreakerOpenException(_statistics);
         }
 

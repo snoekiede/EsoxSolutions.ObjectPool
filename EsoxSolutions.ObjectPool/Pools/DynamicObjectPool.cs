@@ -236,7 +236,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             // Check circuit breaker before proceeding
             if (_circuitBreaker != null)
             {
-                return _circuitBreaker.Execute(() => GetObjectInternal());
+                return _circuitBreaker.Execute(GetObjectInternal);
             }
 
             return GetObjectInternal();
@@ -252,7 +252,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             // Try to get an existing object first
-            T? result = default;
+            T? result = null;
             bool found = false;
 
             // Keep trying until we find a non-expired object or run out
@@ -375,7 +375,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (!this.ActiveObjects.ContainsKey(unwrapped))
             {
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
-                throw new Exceptions.NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
+                throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
             }
 
             // Execute return hook

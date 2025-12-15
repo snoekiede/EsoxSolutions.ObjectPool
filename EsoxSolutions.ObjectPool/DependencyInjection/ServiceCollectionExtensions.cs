@@ -12,171 +12,160 @@ namespace EsoxSolutions.ObjectPool.DependencyInjection;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
-    /// <summary>
-    /// Adds an object pool to the service collection with fluent configuration
-    /// </summary>
-    /// <typeparam name="T">The type of object to pool</typeparam>
     /// <param name="services">The service collection</param>
-    /// <param name="configure">Configuration action for the pool builder</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddObjectPool&lt;DbConnection&gt;(builder => builder
-    ///     .WithFactory(() => new SqlConnection(connectionString))
-    ///     .WithMaxSize(100)
-    ///     .WithValidation(conn => conn.State != ConnectionState.Broken));
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddObjectPool<T>(
-        this IServiceCollection services,
-        Action<ObjectPoolBuilder<T>> configure) where T : class
+    extension(IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
-
-        var builder = new ObjectPoolBuilder<T>();
-        configure(builder);
-
-        services.TryAddSingleton<IObjectPool<T>>(sp =>
+        /// <summary>
+        /// Adds an object pool to the service collection with fluent configuration
+        /// </summary>
+        /// <typeparam name="T">The type of object to pool</typeparam>
+        /// <param name="configure">Configuration action for the pool builder</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddObjectPool&lt;DbConnection&gt;(builder => builder
+        ///     .WithFactory(() => new SqlConnection(connectionString))
+        ///     .WithMaxSize(100)
+        ///     .WithValidation(conn => conn.State != ConnectionState.Broken));
+        /// </code>
+        /// </example>
+        public IServiceCollection AddObjectPool<T>(Action<ObjectPoolBuilder<T>> configure) where T : class
         {
-            var logger = sp.GetService<ILogger<ObjectPool<T>>>();
-            return builder.Build(logger);
-        });
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
 
-        return services;
-    }
+            var builder = new ObjectPoolBuilder<T>();
+            configure(builder);
 
-    /// <summary>
-    /// Adds a dynamic object pool to the service collection
-    /// </summary>
-    /// <typeparam name="T">The type of object to pool</typeparam>
-    /// <param name="services">The service collection</param>
-    /// <param name="factory">Factory method that uses IServiceProvider for dependencies</param>
-    /// <param name="configure">Optional configuration action</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddDynamicObjectPool&lt;DbConnection&gt;(
-    ///     sp => sp.GetRequiredService&lt;IDbConnectionFactory&gt;().Create(),
-    ///     config => config.MaxPoolSize = 50);
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddDynamicObjectPool<T>(
-        this IServiceCollection services,
-        Func<IServiceProvider, T> factory,
-        Action<PoolConfiguration>? configure = null) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(factory);
+            services.TryAddSingleton<IObjectPool<T>>(sp =>
+            {
+                var logger = sp.GetService<ILogger<ObjectPool<T>>>();
+                return builder.Build(logger);
+            });
 
-        services.TryAddSingleton<IObjectPool<T>>(sp =>
+            return services;
+        }
+
+        /// <summary>
+        /// Adds a dynamic object pool to the service collection
+        /// </summary>
+        /// <typeparam name="T">The type of object to pool</typeparam>
+        /// <param name="factory">Factory method that uses IServiceProvider for dependencies</param>
+        /// <param name="configure">Optional configuration action</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddDynamicObjectPool&lt;DbConnection&gt;(
+        ///     sp => sp.GetRequiredService&lt;IDbConnectionFactory&gt;().Create(),
+        ///     config => config.MaxPoolSize = 50);
+        /// </code>
+        /// </example>
+        public IServiceCollection AddDynamicObjectPool<T>(Func<IServiceProvider, T> factory,
+            Action<PoolConfiguration>? configure = null) where T : class
         {
-            var config = new PoolConfiguration();
-            configure?.Invoke(config);
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(factory);
 
-            var logger = sp.GetService<ILogger<ObjectPool<T>>>();
+            services.TryAddSingleton<IObjectPool<T>>(sp =>
+            {
+                var config = new PoolConfiguration();
+                configure?.Invoke(config);
+
+                var logger = sp.GetService<ILogger<ObjectPool<T>>>();
             
-            // Create factory that doesn't need IServiceProvider after initial setup
-            Func<T> poolFactory = () => factory(sp);
-            
-            return new DynamicObjectPool<T>(poolFactory, [], config, logger);
-        });
+                // Create factory that doesn't need IServiceProvider after initial setup
+                T PoolFactory() => factory(sp);
 
-        return services;
-    }
+                return new DynamicObjectPool<T>(PoolFactory, [], config, logger);
+            });
 
-    /// <summary>
-    /// Adds a queryable object pool to the service collection
-    /// </summary>
-    /// <typeparam name="T">The type of object to pool</typeparam>
-    /// <param name="services">The service collection</param>
-    /// <param name="configure">Configuration action for the pool builder</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddQueryableObjectPool&lt;Car&gt;(builder => builder
-    ///     .WithInitialObjects(initialCars)
-    ///     .WithMaxSize(100));
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddQueryableObjectPool<T>(
-        this IServiceCollection services,
-        Action<ObjectPoolBuilder<T>> configure) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
+            return services;
+        }
 
-        var builder = new ObjectPoolBuilder<T>();
-        configure(builder);
-
-        services.TryAddSingleton<IQueryableObjectPool<T>>(sp =>
+        /// <summary>
+        /// Adds a queryable object pool to the service collection
+        /// </summary>
+        /// <typeparam name="T">The type of object to pool</typeparam>
+        /// <param name="configure">Configuration action for the pool builder</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddQueryableObjectPool&lt;Car&gt;(builder => builder
+        ///     .WithInitialObjects(initialCars)
+        ///     .WithMaxSize(100));
+        /// </code>
+        /// </example>
+        public IServiceCollection AddQueryableObjectPool<T>(Action<ObjectPoolBuilder<T>> configure) where T : class
         {
-            var logger = sp.GetService<ILogger<QueryableObjectPool<T>>>();
-            var pool = builder.Build(logger);
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
+
+            var builder = new ObjectPoolBuilder<T>();
+            configure(builder);
+
+            services.TryAddSingleton<IQueryableObjectPool<T>>(sp =>
+            {
+                var logger = sp.GetService<ILogger<QueryableObjectPool<T>>>();
+                var pool = builder.Build(logger);
             
-            return pool as IQueryableObjectPool<T> 
-                ?? throw new InvalidOperationException("Pool is not queryable. Use AsQueryable() in configuration.");
-        });
+                return pool as IQueryableObjectPool<T> 
+                       ?? throw new InvalidOperationException("Pool is not queryable. Use AsQueryable() in configuration.");
+            });
 
-        return services;
-    }
+            return services;
+        }
 
-    /// <summary>
-    /// Adds an object pool with pre-created initial objects
-    /// </summary>
-    /// <typeparam name="T">The type of object to pool</typeparam>
-    /// <param name="services">The service collection</param>
-    /// <param name="initialObjects">Initial objects to add to the pool</param>
-    /// <param name="configure">Optional configuration action</param>
-    /// <returns>The service collection for chaining</returns>
-    public static IServiceCollection AddObjectPoolWithObjects<T>(
-        this IServiceCollection services,
-        IEnumerable<T> initialObjects,
-        Action<PoolConfiguration>? configure = null) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(initialObjects);
+        /// <summary>
+        /// Adds an object pool with pre-created initial objects
+        /// </summary>
+        /// <typeparam name="T">The type of object to pool</typeparam>
+        /// <param name="initialObjects">Initial objects to add to the pool</param>
+        /// <param name="configure">Optional configuration action</param>
+        /// <returns>The service collection for chaining</returns>
+        public IServiceCollection AddObjectPoolWithObjects<T>(IEnumerable<T> initialObjects,
+            Action<PoolConfiguration>? configure = null) where T : class
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(initialObjects);
 
-        var objectList = initialObjects.ToList();
+            var objectList = initialObjects.ToList();
         
-        services.TryAddSingleton<IObjectPool<T>>(sp =>
+            services.TryAddSingleton<IObjectPool<T>>(sp =>
+            {
+                var config = new PoolConfiguration();
+                configure?.Invoke(config);
+
+                var logger = sp.GetService<ILogger<ObjectPool<T>>>();
+                return new ObjectPool<T>(objectList, config, logger);
+            });
+
+            return services;
+        }
+
+        /// <summary>
+        /// Adds multiple object pools for different types
+        /// </summary>
+        /// <param name="configure">Configuration action for multiple pools</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddObjectPools(pools =>
+        /// {
+        ///     pools.AddPool&lt;DbConnection&gt;(builder => builder.WithFactory(() => new SqlConnection(cs)));
+        ///     pools.AddPool&lt;HttpClient&gt;(builder => builder.WithFactory(() => new HttpClient()));
+        /// });
+        /// </code>
+        /// </example>
+        public IServiceCollection AddObjectPools(Action<ObjectPoolCollectionBuilder> configure)
         {
-            var config = new PoolConfiguration();
-            configure?.Invoke(config);
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
 
-            var logger = sp.GetService<ILogger<ObjectPool<T>>>();
-            return new ObjectPool<T>(objectList, config, logger);
-        });
+            var collectionBuilder = new ObjectPoolCollectionBuilder(services);
+            configure(collectionBuilder);
 
-        return services;
-    }
-
-    /// <summary>
-    /// Adds multiple object pools for different types
-    /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="configure">Configuration action for multiple pools</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddObjectPools(pools =>
-    /// {
-    ///     pools.AddPool&lt;DbConnection&gt;(builder => builder.WithFactory(() => new SqlConnection(cs)));
-    ///     pools.AddPool&lt;HttpClient&gt;(builder => builder.WithFactory(() => new HttpClient()));
-    /// });
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddObjectPools(
-        this IServiceCollection services,
-        Action<ObjectPoolCollectionBuilder> configure)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
-
-        var collectionBuilder = new ObjectPoolCollectionBuilder(services);
-        configure(collectionBuilder);
-
-        return services;
+            return services;
+        }
     }
 }
 

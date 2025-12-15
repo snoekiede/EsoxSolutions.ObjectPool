@@ -63,7 +63,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     public IObjectPool<T> GetPoolForScope(PoolScope scope)
     {
         if (_disposed)
-            throw new ObjectDisposedException(nameof(ScopedPoolManager<T>));
+            throw new ObjectDisposedException(nameof(ScopedPoolManager<>));
 
         _lastAccessTimes[scope] = DateTime.UtcNow;
 
@@ -97,10 +97,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
         }
 
         // Track access
-        if (!_statistics.ScopeAccessCounts.ContainsKey(scope.Id))
-        {
-            _statistics.ScopeAccessCounts[scope.Id] = 0;
-        }
+        _statistics.ScopeAccessCounts.TryAdd(scope.Id, 0);
         _statistics.ScopeAccessCounts[scope.Id]++;
 
         return pool;

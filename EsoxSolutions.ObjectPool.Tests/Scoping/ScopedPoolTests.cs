@@ -1,5 +1,4 @@
 using EsoxSolutions.ObjectPool.DependencyInjection;
-using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
 using EsoxSolutions.ObjectPool.Scoping;
 using EsoxSolutions.ObjectPool.Tests.Models;
@@ -380,13 +379,9 @@ public class ScopedPoolTests
     }
 }
 
-public class DisposableCar : Car, IDisposable
+public class DisposableCar(string make, string model) : Car(make, model), IDisposable
 {
     public bool IsDisposed { get; private set; }
-
-    public DisposableCar(string make, string model) : base(make, model)
-    {
-    }
 
     public void Dispose()
     {

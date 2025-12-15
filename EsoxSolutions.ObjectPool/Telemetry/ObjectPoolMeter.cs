@@ -202,7 +202,7 @@ public sealed class ObjectPoolMeter<T> : IDisposable where T : class
     {
         if (_disposed) return;
 
-        _meter?.Dispose();
+        _meter.Dispose();
         _disposed = true;
     }
 }

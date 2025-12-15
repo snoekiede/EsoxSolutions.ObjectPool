@@ -1,5 +1,3 @@
-using EsoxSolutions.ObjectPool.Interfaces;
-
 namespace EsoxSolutions.ObjectPool.Warmup;
 
 /// <summary>

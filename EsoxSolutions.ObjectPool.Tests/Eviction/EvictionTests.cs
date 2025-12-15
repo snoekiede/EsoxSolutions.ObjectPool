@@ -22,7 +22,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Warm up pool
         await pool.WarmUpAsync(5);
@@ -55,7 +55,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(3);
 
         // Get and return an object to mark it as accessed
@@ -92,7 +92,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(3);
 
         // Wait for idle timeout (but not TTL)
@@ -121,7 +121,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(3);
 
         // Wait for objects to expire
@@ -154,7 +154,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Add some objects and access them
         using (var obj1 = pool.GetObject()) { }
@@ -185,7 +185,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(5);
 
         // Wait and evict
@@ -222,8 +222,7 @@ public class EvictionTests
 
         var pool = new DynamicObjectPool<DisposableTestObject>(
             () => new DisposableTestObject(() => Interlocked.Increment(ref disposeCount)),
-            config,
-            null);
+            config);
 
         await pool.WarmUpAsync(3);
 
@@ -252,7 +251,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(5);
 
         // Wait a long time
@@ -280,7 +279,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(5);
 
         // Get an object and hold it
@@ -314,7 +313,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(3);
 
         // Wait for TTL + eviction interval
@@ -345,7 +344,7 @@ public class EvictionTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
         await pool.WarmUpAsync(10);
 
         // Wait for all to expire
@@ -362,21 +361,15 @@ public class EvictionTests
 }
 
 // Helper class for testing disposal
-public class DisposableTestObject : IDisposable
+public class DisposableTestObject(Action? onDispose) : IDisposable
 {
-    private readonly Action _onDispose;
     private bool _disposed;
-
-    public DisposableTestObject(Action onDispose)
-    {
-        _onDispose = onDispose;
-    }
 
     public void Dispose()
     {
         if (!_disposed)
         {
-            _onDispose?.Invoke();
+            onDispose?.Invoke();
             _disposed = true;
         }
     }

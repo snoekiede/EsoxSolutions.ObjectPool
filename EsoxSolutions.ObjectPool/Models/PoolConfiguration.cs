@@ -1,6 +1,5 @@
 using EsoxSolutions.ObjectPool.CircuitBreaker;
 using EsoxSolutions.ObjectPool.Eviction;
-using EsoxSolutions.ObjectPool.Lifecycle;
 
 namespace EsoxSolutions.ObjectPool.Models
 {

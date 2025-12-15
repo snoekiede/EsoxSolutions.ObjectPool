@@ -55,7 +55,7 @@ public class PoolWarmupTests
     {
         // Arrange
         var config = new PoolConfiguration { MaxPoolSize = 10 };
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         await pool.WarmUpAsync(20); // Try to create more than max
@@ -69,7 +69,7 @@ public class PoolWarmupTests
     {
         // Arrange
         var config = new PoolConfiguration { MaxPoolSize = 100 };
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         await pool.WarmUpToPercentageAsync(50); // 50% of 100 = 50
@@ -259,7 +259,7 @@ public class PoolWarmupTests
         
         var config = new PoolConfiguration { MaxPoolSize = 100 };
         services.AddSingleton<IObjectPoolWarmer<Car>>(sp =>
-            new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null));
+            new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config));
 
         services.WithAutoWarmupPercentage<Car>(50);
 

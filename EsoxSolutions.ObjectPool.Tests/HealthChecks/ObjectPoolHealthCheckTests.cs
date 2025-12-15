@@ -5,7 +5,6 @@ using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Tests.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.Tests.HealthChecks;
 

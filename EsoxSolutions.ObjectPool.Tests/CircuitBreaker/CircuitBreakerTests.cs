@@ -282,7 +282,7 @@ public class CircuitBreakerTests
             if (callCount <= 3)
                 throw new Exception("Factory failure");
             return new Car("Test", "Model");
-        }, config, null);
+        }, config);
 
         // Act - Cause failures to open circuit
         for (int i = 0; i < 3; i++)
@@ -313,7 +313,7 @@ public class CircuitBreakerTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => throw new Exception(), config, null);
+        var pool = new DynamicObjectPool<Car>(() => throw new Exception(), config);
 
         // Open circuit
         for (int i = 0; i < 2; i++)
@@ -340,7 +340,7 @@ public class CircuitBreakerTests
             CircuitBreakerConfiguration = new CircuitBreakerConfiguration()
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         pool.TripCircuitBreaker();
@@ -470,7 +470,7 @@ public class CircuitBreakerTests
             if (callCount <= 3)
                 throw new Exception("Warm-up failure");
             return new Car($"Car{callCount}", "Model");
-        }, config, null);
+        }, config);
 
         // Act
         await pool.WarmUpAsync(10);

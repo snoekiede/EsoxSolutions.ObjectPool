@@ -72,6 +72,11 @@ public class PoolScope : IEquatable<PoolScope>
         return new PoolScope($"context:{contextId}", tenantId);
     }
 
+    /// <summary>
+    /// Determines whether the current PoolScope instance is equal to another PoolScope instance.
+    /// </summary>
+    /// <param name="other">The PoolScope instance to compare with the current instance, or null to compare against no object.</param>
+    /// <returns>true if the specified PoolScope is equal to the current instance; otherwise, false.</returns>
     public bool Equals(PoolScope? other)
     {
         if (other is null) return false;
@@ -79,16 +84,33 @@ public class PoolScope : IEquatable<PoolScope>
         return Id == other.Id && TenantId == other.TenantId && UserId == other.UserId;
     }
 
+    /// <summary>
+    /// Determines whether the specified object is equal to the current PoolScope instance.
+    /// </summary>
+    /// <param name="obj">The object to compare with the current PoolScope instance.</param>
+    /// <returns>true if the specified object is a PoolScope and is equal to the current instance; otherwise, false.</returns>
     public override bool Equals(object? obj)
     {
         return Equals(obj as PoolScope);
     }
 
+    /// <summary>
+    /// Serves as the default hash function for the object.
+    /// </summary>
+    /// <remarks>Use this method when objects of this type are used as keys in hash-based collections such as
+    /// Dictionary or HashSet. The hash code is based on the values of the Id, TenantId, and UserId properties. Two
+    /// objects that are considered equal should return the same hash code.</remarks>
+    /// <returns>A 32-bit signed integer hash code that represents the current object.</returns>
     public override int GetHashCode()
     {
         return HashCode.Combine(Id, TenantId, UserId);
     }
 
+    /// <summary>
+    /// Returns a string that represents the current object, including the identifier and, if available, the tenant and
+    /// user information.
+    /// </summary>
+    /// <returns>A string containing the object's identifier, and optionally the tenant and user identifiers if they are set.</returns>
     public override string ToString()
     {
         var parts = new List<string> { Id };
@@ -97,11 +119,23 @@ public class PoolScope : IEquatable<PoolScope>
         return string.Join(", ", parts);
     }
 
+    /// <summary>
+    /// Determines whether two specified PoolScope instances are equal.
+    /// </summary>
+    /// <param name="left">The first PoolScope instance to compare, or null.</param>
+    /// <param name="right">The second PoolScope instance to compare, or null.</param>
+    /// <returns>true if the two PoolScope instances are equal; otherwise, false.</returns>
     public static bool operator ==(PoolScope? left, PoolScope? right)
     {
         return Equals(left, right);
     }
 
+    /// <summary>
+    /// Determines whether two specified PoolScope instances are not equal.
+    /// </summary>
+    /// <param name="left">The first PoolScope instance to compare, or null.</param>
+    /// <param name="right">The second PoolScope instance to compare, or null.</param>
+    /// <returns>true if the specified PoolScope instances are not equal; otherwise, false.</returns>
     public static bool operator !=(PoolScope? left, PoolScope? right)
     {
         return !Equals(left, right);
@@ -246,15 +280,15 @@ public class ScopedPoolStatistics
 /// </summary>
 public static class AmbientPoolScope
 {
-    private static readonly AsyncLocal<PoolScope?> _currentScope = new();
+    private static readonly AsyncLocal<PoolScope?> CurrentScope = new();
 
     /// <summary>
     /// Gets or sets the current ambient scope
     /// </summary>
     public static PoolScope? Current
     {
-        get => _currentScope.Value;
-        set => _currentScope.Value = value;
+        get => CurrentScope.Value;
+        set => CurrentScope.Value = value;
     }
 
     /// <summary>
@@ -267,21 +301,15 @@ public static class AmbientPoolScope
         return new ScopeContext(previous);
     }
 
-    private class ScopeContext : IDisposable
+    private class ScopeContext(PoolScope? previousScope) : IDisposable
     {
-        private readonly PoolScope? _previousScope;
         private bool _disposed;
-
-        public ScopeContext(PoolScope? previousScope)
-        {
-            _previousScope = previousScope;
-        }
 
         public void Dispose()
         {
             if (!_disposed)
             {
-                Current = _previousScope;
+                Current = previousScope;
                 _disposed = true;
             }
         }

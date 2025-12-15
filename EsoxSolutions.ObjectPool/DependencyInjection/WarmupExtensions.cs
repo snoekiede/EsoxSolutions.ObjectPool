@@ -1,4 +1,3 @@
-using EsoxSolutions.ObjectPool.Pools;
 using EsoxSolutions.ObjectPool.Warmup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,94 +10,89 @@ namespace EsoxSolutions.ObjectPool.DependencyInjection;
 /// </summary>
 public static class WarmupExtensions
 {
-    /// <summary>
-    /// Configures a pool to warm up automatically on application startup
-    /// </summary>
-    /// <typeparam name="T">The type of object in the pool</typeparam>
     /// <param name="services">The service collection</param>
-    /// <param name="targetSize">Target number of objects to pre-create</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddDynamicObjectPool&lt;HttpClient&gt;(
-    ///     sp => new HttpClient(),
-    ///     config => config.MaxPoolSize = 100)
-    ///     .WithAutoWarmup(50); // Pre-create 50 objects on startup
-    /// </code>
-    /// </example>
-    public static IServiceCollection WithAutoWarmup<T>(
-        this IServiceCollection services,
-        int targetSize) where T : class
+    extension(IServiceCollection services)
     {
-        services.AddHostedService(sp => 
-            new PoolWarmupHostedService<T>(
-                sp.GetRequiredService<IObjectPoolWarmer<T>>(),
-                sp.GetService<ILogger<PoolWarmupHostedService<T>>>(),
-                targetSize,
-                targetPercentage: null));
-
-        return services;
-    }
-
-    /// <summary>
-    /// Configures a pool to warm up to a percentage of capacity on application startup
-    /// </summary>
-    /// <typeparam name="T">The type of object in the pool</typeparam>
-    /// <param name="services">The service collection</param>
-    /// <param name="targetPercentage">Target percentage (0-100) of maximum capacity</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddDynamicObjectPool&lt;DbConnection&gt;(
-    ///     sp => CreateConnection(),
-    ///     config => config.MaxPoolSize = 100)
-    ///     .WithAutoWarmupPercentage(75); // Pre-create 75% of max capacity
-    /// </code>
-    /// </example>
-    public static IServiceCollection WithAutoWarmupPercentage<T>(
-        this IServiceCollection services,
-        double targetPercentage) where T : class
-    {
-        if (targetPercentage < 0 || targetPercentage > 100)
+        /// <summary>
+        /// Configures a pool to warm up automatically on application startup
+        /// </summary>
+        /// <typeparam name="T">The type of object in the pool</typeparam>
+        /// <param name="targetSize">Target number of objects to pre-create</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddDynamicObjectPool&lt;HttpClient&gt;(
+        ///     sp => new HttpClient(),
+        ///     config => config.MaxPoolSize = 100)
+        ///     .WithAutoWarmup(50); // Pre-create 50 objects on startup
+        /// </code>
+        /// </example>
+        public IServiceCollection WithAutoWarmup<T>(int targetSize) where T : class
         {
-            throw new ArgumentOutOfRangeException(nameof(targetPercentage), "Target percentage must be between 0 and 100");
+            services.AddHostedService(sp => 
+                new PoolWarmupHostedService<T>(
+                    sp.GetRequiredService<IObjectPoolWarmer<T>>(),
+                    sp.GetService<ILogger<PoolWarmupHostedService<T>>>(),
+                    targetSize,
+                    targetPercentage: null));
+
+            return services;
         }
 
-        services.AddHostedService(sp =>
-            new PoolWarmupHostedService<T>(
-                sp.GetRequiredService<IObjectPoolWarmer<T>>(),
-                sp.GetService<ILogger<PoolWarmupHostedService<T>>>(),
-                targetSize: null,
-                targetPercentage));
+        /// <summary>
+        /// Configures a pool to warm up to a percentage of capacity on application startup
+        /// </summary>
+        /// <typeparam name="T">The type of object in the pool</typeparam>
+        /// <param name="targetPercentage">Target percentage (0-100) of maximum capacity</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddDynamicObjectPool&lt;DbConnection&gt;(
+        ///     sp => CreateConnection(),
+        ///     config => config.MaxPoolSize = 100)
+        ///     .WithAutoWarmupPercentage(75); // Pre-create 75% of max capacity
+        /// </code>
+        /// </example>
+        public IServiceCollection WithAutoWarmupPercentage<T>(double targetPercentage) where T : class
+        {
+            if (targetPercentage < 0 || targetPercentage > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetPercentage), "Target percentage must be between 0 and 100");
+            }
 
-        return services;
-    }
+            services.AddHostedService(sp =>
+                new PoolWarmupHostedService<T>(
+                    sp.GetRequiredService<IObjectPoolWarmer<T>>(),
+                    sp.GetService<ILogger<PoolWarmupHostedService<T>>>(),
+                    targetSize: null,
+                    targetPercentage));
 
-    /// <summary>
-    /// Configures multiple pools to warm up on application startup
-    /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="configure">Configuration action for warm-up</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.ConfigurePoolWarmup(warmup =>
-    /// {
-    ///     warmup.WarmupPool&lt;HttpClient&gt;(50);
-    ///     warmup.WarmupPool&lt;DbConnection&gt;(percentage: 80);
-    /// });
-    /// </code>
-    /// </example>
-    public static IServiceCollection ConfigurePoolWarmup(
-        this IServiceCollection services,
-        Action<PoolWarmupBuilder> configure)
-    {
-        ArgumentNullException.ThrowIfNull(configure);
+            return services;
+        }
 
-        var builder = new PoolWarmupBuilder(services);
-        configure(builder);
+        /// <summary>
+        /// Configures multiple pools to warm up on application startup
+        /// </summary>
+        /// <param name="configure">Configuration action for warm-up</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.ConfigurePoolWarmup(warmup =>
+        /// {
+        ///     warmup.WarmupPool&lt;HttpClient&gt;(50);
+        ///     warmup.WarmupPool&lt;DbConnection&gt;(percentage: 80);
+        /// });
+        /// </code>
+        /// </example>
+        public IServiceCollection ConfigurePoolWarmup(Action<PoolWarmupBuilder> configure)
+        {
+            ArgumentNullException.ThrowIfNull(configure);
 
-        return services;
+            var builder = new PoolWarmupBuilder(services);
+            configure(builder);
+
+            return services;
+        }
     }
 }
 
@@ -143,42 +137,31 @@ public class PoolWarmupBuilder
 /// <summary>
 /// Hosted service that warms up pools on application startup
 /// </summary>
-internal class PoolWarmupHostedService<T> : IHostedService where T : class
+internal class PoolWarmupHostedService<T>(
+    IObjectPoolWarmer<T> warmer,
+    ILogger<PoolWarmupHostedService<T>>? logger,
+    int? targetSize,
+    double? targetPercentage)
+    : IHostedService
+    where T : class
 {
-    private readonly IObjectPoolWarmer<T> _warmer;
-    private readonly ILogger<PoolWarmupHostedService<T>>? _logger;
-    private readonly int? _targetSize;
-    private readonly double? _targetPercentage;
-
-    public PoolWarmupHostedService(
-        IObjectPoolWarmer<T> warmer,
-        ILogger<PoolWarmupHostedService<T>>? logger,
-        int? targetSize,
-        double? targetPercentage)
-    {
-        _warmer = warmer;
-        _logger = logger;
-        _targetSize = targetSize;
-        _targetPercentage = targetPercentage;
-    }
-
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         try
         {
-            _logger?.LogInformation("Starting pool warm-up for {PoolType}", typeof(T).Name);
+            logger?.LogInformation("Starting pool warm-up for {PoolType}", typeof(T).Name);
 
-            if (_targetSize.HasValue)
+            if (targetSize.HasValue)
             {
-                await _warmer.WarmUpAsync(_targetSize.Value, cancellationToken);
+                await warmer.WarmUpAsync(targetSize.Value, cancellationToken);
             }
-            else if (_targetPercentage.HasValue)
+            else if (targetPercentage.HasValue)
             {
-                await _warmer.WarmUpToPercentageAsync(_targetPercentage.Value, cancellationToken);
+                await warmer.WarmUpToPercentageAsync(targetPercentage.Value, cancellationToken);
             }
 
-            var status = _warmer.GetWarmupStatus();
-            _logger?.LogInformation(
+            var status = warmer.GetWarmupStatus();
+            logger?.LogInformation(
                 "Pool warm-up completed for {PoolType}: {Created} objects in {Duration}ms",
                 typeof(T).Name,
                 status.ObjectsCreated,
@@ -186,7 +169,7 @@ internal class PoolWarmupHostedService<T> : IHostedService where T : class
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Error during pool warm-up for {PoolType}", typeof(T).Name);
+            logger?.LogError(ex, "Error during pool warm-up for {PoolType}", typeof(T).Name);
         }
     }
 

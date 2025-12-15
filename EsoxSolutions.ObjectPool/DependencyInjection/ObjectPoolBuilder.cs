@@ -13,7 +13,7 @@ public class ObjectPoolBuilder<T> where T : class
 {
     private readonly List<T> _initialObjects = [];
     private Func<T>? _factory;
-    private PoolConfiguration _configuration = new();
+    private readonly PoolConfiguration _configuration = new();
     private bool _enableHealthChecks;
     private PoolType _poolType = PoolType.Standard;
 

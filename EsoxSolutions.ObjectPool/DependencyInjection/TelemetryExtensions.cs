@@ -10,62 +10,60 @@ namespace EsoxSolutions.ObjectPool.DependencyInjection;
 /// </summary>
 public static class TelemetryExtensions
 {
-    /// <summary>
-    /// Adds OpenTelemetry metrics for the specified object pool
-    /// </summary>
-    /// <typeparam name="T">The type of object in the pool</typeparam>
     /// <param name="services">The service collection</param>
-    /// <param name="meterName">Optional meter name (default: "EsoxSolutions.ObjectPool")</param>
-    /// <param name="poolName">Optional pool name for tagging</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddObjectPool&lt;HttpClient&gt;(builder => ...)
-    ///     .AddObjectPoolMetrics&lt;HttpClient&gt;("http-client-pool");
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddObjectPoolMetrics<T>(
-        this IServiceCollection services,
-        string? meterName = null,
-        string? poolName = null) where T : class
+    extension(IServiceCollection services)
     {
-        ArgumentNullException.ThrowIfNull(services);
-
-        services.TryAddSingleton(sp =>
+        /// <summary>
+        /// Adds OpenTelemetry metrics for the specified object pool
+        /// </summary>
+        /// <typeparam name="T">The type of object in the pool</typeparam>
+        /// <param name="meterName">Optional meter name (default: "EsoxSolutions.ObjectPool")</param>
+        /// <param name="poolName">Optional pool name for tagging</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddObjectPool&lt;HttpClient&gt;(builder => ...)
+        ///     .AddObjectPoolMetrics&lt;HttpClient&gt;("http-client-pool");
+        /// </code>
+        /// </example>
+        public IServiceCollection AddObjectPoolMetrics<T>(string? meterName = null,
+            string? poolName = null) where T : class
         {
-            var pool = sp.GetRequiredService<IObjectPool<T>>();
-            return new ObjectPoolMeter<T>(pool, meterName, poolName);
-        });
+            ArgumentNullException.ThrowIfNull(services);
 
-        return services;
-    }
+            services.TryAddSingleton(sp =>
+            {
+                var pool = sp.GetRequiredService<IObjectPool<T>>();
+                return new ObjectPoolMeter<T>(pool, meterName, poolName);
+            });
 
-    /// <summary>
-    /// Adds OpenTelemetry metrics for multiple object pools
-    /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="configure">Configuration action for registering metrics</param>
-    /// <returns>The service collection for chaining</returns>
-    /// <example>
-    /// <code>
-    /// services.AddObjectPoolsWithMetrics(metrics =>
-    /// {
-    ///     metrics.AddMetrics&lt;HttpClient&gt;("http-client-pool");
-    ///     metrics.AddMetrics&lt;DbConnection&gt;("database-pool");
-    /// });
-    /// </code>
-    /// </example>
-    public static IServiceCollection AddObjectPoolsWithMetrics(
-        this IServiceCollection services,
-        Action<ObjectPoolMetricsBuilder> configure)
-    {
-        ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(configure);
+            return services;
+        }
 
-        var builder = new ObjectPoolMetricsBuilder(services);
-        configure(builder);
+        /// <summary>
+        /// Adds OpenTelemetry metrics for multiple object pools
+        /// </summary>
+        /// <param name="configure">Configuration action for registering metrics</param>
+        /// <returns>The service collection for chaining</returns>
+        /// <example>
+        /// <code>
+        /// services.AddObjectPoolsWithMetrics(metrics =>
+        /// {
+        ///     metrics.AddMetrics&lt;HttpClient&gt;("http-client-pool");
+        ///     metrics.AddMetrics&lt;DbConnection&gt;("database-pool");
+        /// });
+        /// </code>
+        /// </example>
+        public IServiceCollection AddObjectPoolsWithMetrics(Action<ObjectPoolMetricsBuilder> configure)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            ArgumentNullException.ThrowIfNull(configure);
 
-        return services;
+            var builder = new ObjectPoolMetricsBuilder(services);
+            configure(builder);
+
+            return services;
+        }
     }
 }
 

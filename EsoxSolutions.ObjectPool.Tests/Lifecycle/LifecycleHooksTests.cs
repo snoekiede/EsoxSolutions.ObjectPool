@@ -25,7 +25,7 @@ public class LifecycleHooksTests
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         using var obj = pool.GetObject();
@@ -50,7 +50,7 @@ public class LifecycleHooksTests
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
         var initialCars = new List<Car> { new("Test", "Model") };
-        var pool = new DynamicObjectPool<Car>(() => new Car("New", "Model"), initialCars, config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("New", "Model"), initialCars, config);
 
         // Act
         using (var obj1 = pool.GetObject()) { }
@@ -79,7 +79,7 @@ public class LifecycleHooksTests
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
         // Start with empty pool to force factory usage
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), [], config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), [], config);
 
         // Act
         var obj = pool.GetObject();
@@ -115,8 +115,7 @@ public class LifecycleHooksTests
 
         var pool = new DynamicObjectPool<DisposableTestObject>(
             () => new DisposableTestObject(),
-            config,
-            null);
+            config);
 
         // Create and return object
         using (var obj = pool.GetObject()) { }
@@ -158,7 +157,7 @@ public class LifecycleHooksTests
             }
         };
 
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Create object
         using (var obj = pool.GetObject()) { }
@@ -274,7 +273,7 @@ public class LifecycleHooksTests
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         using (var obj = pool.GetObject()) { }
@@ -299,7 +298,7 @@ public class LifecycleHooksTests
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
-        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
         using (var obj = pool.GetObject()) { }
@@ -322,7 +321,7 @@ public class LifecycleHooksTests
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
         var initialCars = new List<Car> { new("Existing", "Car") };
-        var pool = new DynamicObjectPool<Car>(() => new Car("New", "Car"), initialCars, config, null);
+        var pool = new DynamicObjectPool<Car>(() => new Car("New", "Car"), initialCars, config);
 
         // Act
         using (var obj = pool.GetObject()) { }

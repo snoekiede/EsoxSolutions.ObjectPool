@@ -9,13 +9,13 @@
     <PackageProjectUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
-    <PackageTags>objectpool;threadsafe;async;performance;metrics;healthchecks;dependencyinjection</PackageTags>
+    <PackageTags>objectpool;threadsafe;async;performance;metrics;healthchecks;dependencyinjection;opentelemetry</PackageTags>
     <AssemblyVersion>3.1.0</AssemblyVersion>
     <FileVersion>3.1.0</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Threadsafe Object pool for .NET with async Support</Title>
     <Authors>Iede Snoek</Authors>
-    <PackageReleaseNotes>Version 3.1: Added DI support and ASP.NET Core Health Checks integration</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 3.1: Added DI support, ASP.NET Core Health Checks, and OpenTelemetry metrics integration</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Version>3.1.0</Version>
     <SignAssembly>True</SignAssembly>

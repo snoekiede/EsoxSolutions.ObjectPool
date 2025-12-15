@@ -326,6 +326,370 @@ public class PoolMonitoringService : BackgroundService
 builder.Services.AddHostedService<PoolMonitoringService>();
 ```
 
+## OpenTelemetry Metrics Integration
+
+### Overview
+
+The library includes native OpenTelemetry metrics support using the `System.Diagnostics.Metrics` API, providing seamless integration with modern observability platforms like Prometheus, Grafana, Azure Monitor, AWS X-Ray, and Datadog.
+
+### Basic Setup
+
+```csharp
+using EsoxSolutions.ObjectPool.DependencyInjection;
+using OpenTelemetry.Metrics;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools
+builder.Services.AddObjectPool<HttpClient>(b => b
+    .WithFactory(() => new HttpClient())
+    .WithMaxSize(100));
+
+// Register OpenTelemetry metrics
+builder.Services.AddObjectPoolMetrics<HttpClient>(poolName: "http-client-pool");
+
+// Configure OpenTelemetry
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool") // Subscribe to pool metrics
+        .AddPrometheusExporter());             // Export to Prometheus
+
+var app = builder.Build();
+app.Run();
+```
+
+### Available Metrics
+
+The pool exports the following OpenTelemetry metrics:
+
+| Metric Name | Type | Unit | Description |
+|-------------|------|------|-------------|
+| `objectpool.objects.active` | ObservableGauge | `{objects}` | Current number of active (checked out) objects |
+| `objectpool.objects.available` | ObservableGauge | `{objects}` | Current number of available objects in pool |
+| `objectpool.utilization` | ObservableGauge | `1` (ratio) | Pool utilization as a ratio (0.0 to 1.0) |
+| `objectpool.health.status` | ObservableGauge | `1` | Health status (1=healthy, 0=unhealthy) |
+| `objectpool.objects.retrieved` | Counter | `{objects}` | Total objects retrieved from pool |
+| `objectpool.objects.returned` | Counter | `{objects}` | Total objects returned to pool |
+| `objectpool.events.empty` | Counter | `{events}` | Times pool was empty when requested |
+| `objectpool.operation.duration` | Histogram | `ms` | Duration of pool operations |
+
+### Multiple Pools with Metrics
+
+```csharp
+services.AddObjectPools(pools =>
+{
+    pools.AddPool<HttpClient>(b => b.WithFactory(() => new HttpClient()));
+    pools.AddPool<DbConnection>(b => b.WithFactory(() => new SqlConnection(cs)));
+});
+
+// Register metrics for all pools
+services.AddObjectPoolsWithMetrics(metrics =>
+{
+    metrics.AddMetrics<HttpClient>("http-client-pool");
+    metrics.AddMetrics<DbConnection>("database-pool");
+});
+```
+
+### With Prometheus Export
+
+```csharp
+using OpenTelemetry.Metrics;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools and metrics
+builder.Services.AddObjectPool<HttpClient>(b => b
+    .WithFactory(() => new HttpClient())
+    .WithMaxSize(100));
+
+builder.Services.AddObjectPoolMetrics<HttpClient>("http-pool");
+
+// Configure OpenTelemetry with Prometheus
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddPrometheusExporter());
+
+var app = builder.Build();
+
+// Prometheus scrape endpoint
+app.MapPrometheusScrapingEndpoint();
+
+app.Run();
+```
+
+### Example Prometheus Queries
+
+```promql
+# Pool utilization
+objectpool_utilization{pool_name="http-client-pool"}
+
+# Active objects over time
+rate(objectpool_objects_active[5m])
+
+# Pool empty events
+increase(objectpool_events_empty[1h])
+
+# 95th percentile operation duration
+histogram_quantile(0.95, rate(objectpool_operation_duration_bucket[5m]))
+
+# Alert when utilization exceeds 80%
+objectpool_utilization > 0.8
+```
+
+### Grafana Dashboard Example
+
+```json
+{
+  "dashboard": {
+    "title": "Object Pool Metrics",
+    "panels": [
+      {
+        "title": "Pool Utilization",
+        "targets": [
+          {
+            "expr": "objectpool_utilization{pool_name=\"$pool\"} * 100",
+            "legendFormat": "{{pool_name}}"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Active vs Available Objects",
+        "targets": [
+          {
+            "expr": "objectpool_objects_active{pool_name=\"$pool\"}",
+            "legendFormat": "Active"
+          },
+          {
+            "expr": "objectpool_objects_available{pool_name=\"$pool\"}",
+            "legendFormat": "Available"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Operation Duration (p95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(objectpool_operation_duration_bucket[5m]))",
+            "legendFormat": "p95"
+          }
+        ],
+        "type": "graph"
+      }
+    ]
+  }
+}
+```
+
+### Azure Monitor Integration
+
+```csharp
+using Azure.Monitor.OpenTelemetry.Exporter;
+
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddAzureMonitorMetricExporter(options =>
+        {
+            options.ConnectionString = builder.Configuration["ApplicationInsights:ConnectionString"];
+        }));
+```
+
+### AWS CloudWatch Integration
+
+```csharp
+using OpenTelemetry.Exporter.OpenTelemetryProtocol;
+
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri("https://otlp.nr-data.net");
+            options.Headers = $"api-key={Environment.GetEnvironmentVariable("NEW_RELIC_LICENSE_KEY")}";
+        }));
+```
+
+### Custom Instrumentation
+
+```csharp
+using EsoxSolutions.ObjectPool.Telemetry;
+
+public class CustomService
+{
+    private readonly IObjectPool<HttpClient> _pool;
+    private readonly ObjectPoolMeter<HttpClient> _meter;
+    
+    public CustomService(
+        IObjectPool<HttpClient> pool,
+        ObjectPoolMeter<HttpClient> meter)
+    {
+        _pool = pool;
+        _meter = meter;
+    }
+    
+    public async Task<string> FetchDataAsync(string url)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        
+        try
+        {
+            using var pooled = _pool.GetObject();
+            _meter.RecordRetrieval(success: true, durationMs: stopwatch.Elapsed.TotalMilliseconds);
+            
+            var client = pooled.Unwrap();
+            return await client.GetStringAsync(url);
+        }
+        catch
+        {
+            _meter.RecordEmptyEvent();
+            throw;
+        }
+        finally
+        {
+            stopwatch.Stop();
+        }
+    }
+}
+```
+
+### Metric Tags and Dimensions
+
+All metrics include the following tags/dimensions:
+
+- `pool.name`: The configured pool name
+- `pool.type`: The type of objects in the pool (e.g., "HttpClient")
+- `success`: For counter metrics, indicates operation success (true/false)
+- `operation`: For histogram metrics, indicates operation type ("retrieve", "return")
+
+### Real-time Monitoring with MeterListener
+
+```csharp
+using System.Diagnostics.Metrics;
+
+public class PoolMonitoringService : BackgroundService
+{
+    private MeterListener? _listener;
+    
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _listener = new MeterListener
+        {
+            InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "EsoxSolutions.ObjectPool")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            }
+        };
+        
+        _listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        {
+            Console.WriteLine($"{instrument.Name}: {measurement:F2}");
+        });
+        
+        _listener.Start();
+        return Task.CompletedTask;
+    }
+    
+    public override void Dispose()
+    {
+        _listener?.Dispose();
+        base.Dispose();
+    }
+}
+```
+
+### Alerting Examples
+
+#### Prometheus AlertManager
+
+```yaml
+groups:
+  - name: objectpool_alerts
+    rules:
+      - alert: HighPoolUtilization
+        expr: objectpool_utilization > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High pool utilization detected"
+          description: "Pool {{ $labels.pool_name }} utilization is {{ $value }}%"
+      
+      - alert: PoolEmptyEvents
+        expr: increase(objectpool_events_empty[5m]) > 10
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pool empty events detected"
+          description: "Pool {{ $labels.pool_name }} was empty {{ $value }} times in the last 5 minutes"
+      
+      - alert: PoolUnhealthy
+        expr: objectpool_health_status == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pool is unhealthy"
+          description: "Pool {{ $labels.pool_name }} is reporting unhealthy status"
+```
+
+### Best Practices for OpenTelemetry
+
+1. **Use meaningful pool names** for easy identification in dashboards
+2. **Configure appropriate scrape intervals** (typically 15-60 seconds)
+3. **Set up alerts** for high utilization and empty events
+4. **Monitor operation duration** to identify performance issues
+5. **Use tags/dimensions** for filtering and grouping in queries
+6. **Export to multiple backends** for redundancy
+7. **Set resource attributes** to identify the application instance
+
+### Complete Example with All Observability Features
+
+```csharp
+using EsoxSolutions.ObjectPool.DependencyInjection;
+using EsoxSolutions.ObjectPool.HealthChecks;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools
+builder.Services.AddObjectPool<HttpClient>(b => b
+    .WithFactory(() => new HttpClient())
+    .WithMaxSize(100)
+    .WithMaxActiveObjects(50));
+
+// Health Checks
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>("http-client-pool");
+
+// OpenTelemetry Metrics
+builder.Services.AddObjectPoolMetrics<HttpClient>("http-client-pool");
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource
+        .AddService("MyApplication", serviceVersion: "1.0.0"))
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddPrometheusExporter()
+        .AddOtlpExporter());
+
+var app = builder.Build();
+
+// Endpoints
+app.MapHealthChecks("/health");
+app.MapPrometheusScrapingEndpoint();
+
+app.Run();
+```
+
 ## Configuration Options
 
 ### Standard Object Pool

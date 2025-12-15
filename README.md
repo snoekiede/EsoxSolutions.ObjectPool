@@ -6,13 +6,15 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection & Health Checks
+### ?? Dependency Injection, Health Checks & OpenTelemetry
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
+- **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
 - **Kubernetes-ready** with liveness and readiness probe support
+- **Prometheus, Grafana, Azure Monitor, AWS CloudWatch** integration
 - See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for complete guide
 
 ### Previous Updates (v3.0)
@@ -43,6 +45,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
     
 - **?? Dependency Injection** - First-class ASP.NET Core and Generic Host support
 - **????? Health Checks** - ASP.NET Core Health Checks integration for monitoring
+- **?? OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -56,11 +59,12 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## Quick Start
 
-### With Dependency Injection & Health Checks (Recommended)
+### With Dependency Injection, Health Checks & OpenTelemetry (Recommended)
 
 ```csharp
 using EsoxSolutions.ObjectPool.DependencyInjection;
 using EsoxSolutions.ObjectPool.HealthChecks;
+using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -79,14 +83,20 @@ builder.Services.AddHealthChecks()
     .AddObjectPoolHealthCheck<HttpClient>("http-client-pool")
     .AddObjectPoolHealthCheck<DbConnection>("database-pool");
 
+// Register OpenTelemetry metrics
+builder.Services.AddObjectPoolMetrics<HttpClient>("http-client-pool");
+builder.Services.AddObjectPoolMetrics<DbConnection>("database-pool");
+
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddPrometheusExporter());
+
 var app = builder.Build();
 
-// Add health check endpoints
+// Add endpoints
 app.MapHealthChecks("/health");
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = check => check.Tags.Contains("ready")
-});
+app.MapPrometheusScrapingEndpoint();
 
 app.Run();
 ```
@@ -109,6 +119,16 @@ app.Run();
   }
 }
 ```
+
+**OpenTelemetry Metrics Available:**
+- `objectpool.objects.active` - Current active objects
+- `objectpool.objects.available` - Current available objects
+- `objectpool.utilization` - Pool utilization ratio (0.0-1.0)
+- `objectpool.health.status` - Health status (1=healthy, 0=unhealthy)
+- `objectpool.objects.retrieved` - Total objects retrieved (counter)
+- `objectpool.objects.returned` - Total objects returned (counter)
+- `objectpool.events.empty` - Pool empty events (counter)
+- `objectpool.operation.duration` - Operation duration histogram
 
 ### In Your Service
 
@@ -133,6 +153,8 @@ public class MyService
 
 **See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for comprehensive examples including:**
 - ASP.NET Core Health Checks setup
+- OpenTelemetry metrics integration
+- Prometheus, Grafana, Azure Monitor integration
 - Kubernetes liveness/readiness probes
 - Custom health check thresholds
 - Database connection pooling
@@ -277,12 +299,14 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 ### 3.1.0 (Current) - January 2025
 - ? **New**: First-class dependency injection support for ASP.NET Core
 - ? **New**: ASP.NET Core Health Checks integration with custom thresholds
+- ? **New**: OpenTelemetry metrics using System.Diagnostics.Metrics API
+- ? **New**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
 - ? **New**: Kubernetes liveness and readiness probe support
-- ?? Added comprehensive DI and Health Checks documentation
-- ?? 104/104 tests passing (83 original + 12 DI + 9 health check tests)
+- ?? Added comprehensive DI, Health Checks, and OpenTelemetry documentation
+- ?? 115/115 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10

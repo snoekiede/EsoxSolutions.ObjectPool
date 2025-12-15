@@ -1,3 +1,4 @@
+using EsoxSolutions.ObjectPool.CircuitBreaker;
 using EsoxSolutions.ObjectPool.Eviction;
 
 namespace EsoxSolutions.ObjectPool.Models
@@ -41,5 +42,10 @@ namespace EsoxSolutions.ObjectPool.Models
         /// Eviction configuration for time-to-live and idle timeout support
         /// </summary>
         public EvictionConfiguration? EvictionConfiguration { get; set; }
+
+        /// <summary>
+        /// Circuit breaker configuration for protecting against cascading failures
+        /// </summary>
+        public CircuitBreakerConfiguration? CircuitBreakerConfiguration { get; set; }
     }
 }

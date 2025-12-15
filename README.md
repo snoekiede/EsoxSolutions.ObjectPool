@@ -6,12 +6,13 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection, Health Checks, OpenTelemetry, Warm-up & Eviction
+### ?? Dependency Injection, Health Checks, OpenTelemetry, Warm-up, Eviction & Circuit Breaker
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
 - **Pool warm-up/pre-population** to eliminate cold-start latency
 - **Eviction / Time-to-Live (TTL)** support for automatic stale object removal
+- **Circuit Breaker pattern** for protecting against cascading failures
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
@@ -50,6 +51,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **?? OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
 - **?? Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
 - **? Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
+- **??? Circuit Breaker** - Protect against cascading failures with automatic recovery
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -379,13 +381,14 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 - ? **New**: OpenTelemetry metrics using System.Diagnostics.Metrics API
 - ? **New**: Pool warm-up/pre-population for zero cold-start latency
 - ? **New**: Eviction / Time-to-Live (TTL) support for automatic stale object removal
+- ? **New**: Circuit Breaker pattern for protecting against cascading failures
 - ? **New**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
 - ? **New**: Kubernetes liveness and readiness probe support
-- ?? Added comprehensive DI, Health Checks, OpenTelemetry, warm-up, and eviction documentation
-- ?? 142/142 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up + 11 eviction tests)
+- ?? Added comprehensive DI, Health Checks, OpenTelemetry, warm-up, eviction, and circuit breaker documentation
+- ?? 158/158 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up + 11 eviction + 16 circuit breaker tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10

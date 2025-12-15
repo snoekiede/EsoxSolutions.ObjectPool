@@ -1,4 +1,5 @@
-﻿using EsoxSolutions.ObjectPool.Constants;
+﻿using EsoxSolutions.ObjectPool.CircuitBreaker;
+using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Eviction;
 using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
@@ -35,12 +36,18 @@ namespace EsoxSolutions.ObjectPool.Pools
         private Timer? _evictionCheckTimer;
 
         /// <summary>
+        /// Circuit breaker for protecting against cascading failures
+        /// </summary>
+        private CircuitBreaker.CircuitBreaker? _circuitBreaker;
+
+        /// <summary>
         /// The constructor for the queryable object pool
         /// </summary>
         /// <param name="initialObjects">the initial objects</param>
         public DynamicObjectPool(List<T> initialObjects) : base(initialObjects)
         {
             InitializeEviction();
+            InitializeCircuitBreaker();
         }
 
         /// <summary>
@@ -51,6 +58,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
             InitializeEviction();
+            InitializeCircuitBreaker();
         }
 
         /// <summary>
@@ -62,6 +70,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
             InitializeEviction();
+            InitializeCircuitBreaker();
         }
 
         /// <summary>
@@ -83,6 +92,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
             InitializeEviction();
+            InitializeCircuitBreaker();
         }
 
         /// <summary>
@@ -99,6 +109,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this._factory = factory;
             InitializeEviction();
+            InitializeCircuitBreaker();
+        }
+
+        private void InitializeCircuitBreaker()
+        {
+            if (Configuration.CircuitBreakerConfiguration != null)
+            {
+                _circuitBreaker = new CircuitBreaker.CircuitBreaker(
+                    Configuration.CircuitBreakerConfiguration,
+                    Logger);
+
+                Logger?.LogInformation(
+                    "Circuit breaker enabled: FailureThreshold={Threshold}, OpenDuration={Duration}",
+                    Configuration.CircuitBreakerConfiguration.FailureThreshold,
+                    Configuration.CircuitBreakerConfiguration.OpenDuration);
+            }
         }
 
         private void InitializeEviction()
@@ -168,10 +194,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <returns>A PoolModel wrapping the pooled object</returns>
         /// <exception cref="NoObjectsInPoolException">Thrown if no object could be found and no factory is available</exception>
         /// <exception cref="UnableToCreateObjectException">Thrown if the factory fails to create an object or no factory exists</exception>
+        /// <exception cref="CircuitBreakerOpenException">Thrown if circuit breaker is open</exception>
         public override PoolModel<T> GetObject()
         {
             if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<>));
 
+            // Check circuit breaker before proceeding
+            if (_circuitBreaker != null)
+            {
+                return _circuitBreaker.Execute(() => GetObjectInternal());
+            }
+
+            return GetObjectInternal();
+        }
+
+        private PoolModel<T> GetObjectInternal()
+        {
             // Check max active objects limit
             if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
             {
@@ -300,11 +338,37 @@ namespace EsoxSolutions.ObjectPool.Pools
         }
 
         /// <summary>
+        /// Gets circuit breaker statistics
+        /// </summary>
+        public CircuitBreakerStatistics? GetCircuitBreakerStatistics()
+        {
+            return _circuitBreaker?.GetStatistics();
+        }
+
+        /// <summary>
         /// Manually triggers an eviction check
         /// </summary>
         public void TriggerEviction()
         {
             PerformEvictionCheck(null);
+        }
+
+        /// <summary>
+        /// Manually resets the circuit breaker
+        /// </summary>
+        public void ResetCircuitBreaker()
+        {
+            _circuitBreaker?.Reset();
+            Logger?.LogInformation("Circuit breaker manually reset");
+        }
+
+        /// <summary>
+        /// Manually trips (opens) the circuit breaker
+        /// </summary>
+        public void TripCircuitBreaker()
+        {
+            _circuitBreaker?.Trip();
+            Logger?.LogWarning("Circuit breaker manually tripped");
         }
 
         #region IObjectPoolWarmer Implementation
@@ -353,6 +417,11 @@ namespace EsoxSolutions.ObjectPool.Pools
                     {
                         try
                         {
+                            // Use circuit breaker protection during warm-up
+                            if (_circuitBreaker != null)
+                            {
+                                return _circuitBreaker.Execute(() => _factory.Invoke());
+                            }
                             return _factory.Invoke();
                         }
                         catch (Exception ex)
@@ -382,6 +451,11 @@ namespace EsoxSolutions.ObjectPool.Pools
             catch (OperationCanceledException)
             {
                 Logger?.LogInformation("Pool warm-up cancelled after creating {Created} objects", _warmupStatus.ObjectsCreated);
+            }
+            catch (CircuitBreakerOpenException ex)
+            {
+                Logger?.LogWarning("Pool warm-up interrupted by circuit breaker: {Message}", ex.Message);
+                _warmupStatus.Errors.Add($"Circuit breaker open: {ex.Message}");
             }
 
             stopwatch.Stop();
@@ -433,6 +507,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             {
                 _evictionCheckTimer?.Dispose();
                 _evictionManager?.Dispose();
+                _circuitBreaker?.Dispose();
             }
 
             base.Dispose(disposing);

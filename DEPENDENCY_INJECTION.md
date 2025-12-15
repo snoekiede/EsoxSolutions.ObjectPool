@@ -1,8 +1,8 @@
-# Dependency Injection Integration
+# Dependency Injection Integration - Version 4.0.0
 
 ## Overview
 
-EsoxSolutions.ObjectPool v3.1 includes first-class support for ASP.NET Core and Generic Host dependency injection, making it easy to register and configure object pools in your applications. The library also includes full integration with ASP.NET Core Health Checks for production monitoring.
+EsoxSolutions.ObjectPool v4.0.0 includes first-class support for ASP.NET Core and Generic Host dependency injection, making it easy to register and configure object pools in your applications. The library also includes full integration with ASP.NET Core Health Checks, OpenTelemetry metrics, pool warm-up, eviction/TTL, circuit breaker, lifecycle hooks, and scoped pools for production monitoring.
 
 ## Installation
 
@@ -13,6 +13,8 @@ dotnet add package EsoxSolutions.ObjectPool
 The package includes:
 - `Microsoft.Extensions.DependencyInjection.Abstractions` for DI support
 - `Microsoft.Extensions.Diagnostics.HealthChecks` for health check integration
+- `System.Diagnostics.DiagnosticSource` for OpenTelemetry metrics
+- Complete support for warm-up, eviction, circuit breaker, lifecycle hooks, and scoped pools
 
 ## Quick Start
 

@@ -230,15 +230,15 @@ namespace EsoxSolutions.ObjectPool.Tests
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
                 await pool.GetObjectAsync(cancellationToken: cts.Token));
                 
-            // Test query-based async with timeout (use fresh token, not canceled one)
+            // Test query-based async with timeout (use fresh non-cancelled token)
             await Assert.ThrowsAsync<TimeoutException>(async () => 
                 await pool.GetObjectAsync(c => c.Make == "Ford", TimeSpan.FromMilliseconds(100)));
                 
             // Test query-based async with cancellation (create new CancellationTokenSource)
-            cts = new CancellationTokenSource();
-            await cts.CancelAsync();
+            var cts2 = new CancellationTokenSource();
+            await cts2.CancelAsync();
             await Assert.ThrowsAsync<OperationCanceledException>(async () => 
-                await pool.GetObjectAsync(c => c.Make == "Ford", cancellationToken: cts.Token));
+                await pool.GetObjectAsync(c => c.Make == "Ford", cancellationToken: cts2.Token));
         }
         
         [Fact]
@@ -553,7 +553,7 @@ namespace EsoxSolutions.ObjectPool.Tests
     }
     
     // Helper class for testing IDisposable implementation
-    public class DisposableCar(Action onDispose) : IDisposable
+    public class DisposableCar(Action? onDispose) : IDisposable
     {
         public string Make { get; set; } = "TestMake";
         public string Model { get; set; } = "TestModel";

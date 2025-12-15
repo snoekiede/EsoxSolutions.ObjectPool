@@ -1,3 +1,6 @@
+using EsoxSolutions.ObjectPool.CircuitBreaker;
+using EsoxSolutions.ObjectPool.Eviction;
+
 namespace EsoxSolutions.ObjectPool.Models
 {
     /// <summary>
@@ -35,6 +38,24 @@ namespace EsoxSolutions.ObjectPool.Models
         /// </summary>
         public bool EnableDetailedStatistics { get; set; } = true;
 
+        /// <summary>
+        /// Eviction configuration for time-to-live and idle timeout support
+        /// </summary>
+        public EvictionConfiguration? EvictionConfiguration { get; set; }
 
+        /// <summary>
+        /// Circuit breaker configuration for protecting against cascading failures
+        /// </summary>
+        public CircuitBreakerConfiguration? CircuitBreakerConfiguration { get; set; }
+
+        /// <summary>
+        /// Lifecycle hooks configuration for custom object lifecycle management
+        /// </summary>
+        public object? LifecycleHooks { get; set; }
+
+        /// <summary>
+        /// Whether to continue pool operations if lifecycle hooks throw exceptions
+        /// </summary>
+        public bool ContinueOnLifecycleHookError { get; set; } = true;
     }
 }

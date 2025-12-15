@@ -11,7 +11,7 @@ All 186 tests passing (100% success rate)
 
 ---
 
-## ?? **New Files Created**
+## **New Files Created**
 
 ### 1. **IObjectPoolWarmer.cs** - Interface and Status Model
 - `IObjectPoolWarmer<T>` interface for warm-up functionality
@@ -46,7 +46,7 @@ All 186 tests passing (100% success rate)
 
 ---
 
-## ?? **Usage Examples**
+## **Usage Examples**
 
 ### Basic Warm-up
 ```csharp
@@ -86,35 +86,35 @@ Console.WriteLine($"Progress: {status.ProgressPercentage:F2}%");
 
 ---
 
-## ? **Key Features**
+## **Key Features**
 
 ### Performance
-- ? **Zero cold-start latency** - Objects pre-created during startup
-- ? **Async non-blocking** - Doesn't block application startup
-- ? **Batch processing** - Efficient parallel creation
-- ? **Optimized batching** - Uses `Environment.ProcessorCount * 2`
+- **Zero cold-start latency** - Objects pre-created during startup
+- **Async non-blocking** - Doesn't block application startup
+- **Batch processing** - Efficient parallel creation
+- **Optimized batching** - Uses `Environment.ProcessorCount * 2`
 
 ### Configuration
-- ? **Absolute size** - `WarmUpAsync(50)` creates 50 objects
-- ? **Percentage-based** - `WarmUpToPercentageAsync(75)` creates 75% of capacity
-- ? **Respects limits** - Never exceeds MaxPoolSize
-- ? **Smart allocation** - Only creates what's needed
+- **Absolute size** - `WarmUpAsync(50)` creates 50 objects
+- **Percentage-based** - `WarmUpToPercentageAsync(75)` creates 75% of capacity
+- **Respects limits** - Never exceeds MaxPoolSize
+- **Smart allocation** - Only creates what's needed
 
 ### Monitoring
-- ? **Progress tracking** - Real-time progress percentage
-- ? **Duration tracking** - Warm-up time measurement
-- ? **Error tracking** - Collects factory errors
-- ? **Completion status** - IsWarmedUp flag and CompletedAt timestamp
+- **Progress tracking** - Real-time progress percentage
+- **Duration tracking** - Warm-up time measurement
+- **Error tracking** - Collects factory errors
+- **Completion status** - IsWarmedUp flag and CompletedAt timestamp
 
 ### Integration
-- ? **DI support** - First-class dependency injection
-- ? **Hosted service** - Automatic startup warm-up
-- ? **Multiple pools** - Configure all pools at once
-- ? **Cancellation** - Supports CancellationToken
+- **DI support** - First-class dependency injection
+- **Hosted service** - Automatic startup warm-up
+- **Multiple pools** - Configure all pools at once
+- **Cancellation** - Supports CancellationToken
 
 ---
 
-## ?? **Performance Benefits**
+## **Performance Benefits**
 
 ### Without Warm-up
 ```
@@ -134,30 +134,30 @@ Second request:           11ms (reusing connection)
 
 ---
 
-## ?? **Test Coverage**
+## **Test Coverage**
 
 All 16 warm-up tests passing:
 
-1. ? `WarmUpAsync_WithTargetSize_CreatesObjects`
-2. ? `WarmUpAsync_WithExistingObjects_OnlyCreatesNeeded`
-3. ? `WarmUpAsync_ExceedingMaxSize_RespectsLimit`
-4. ? `WarmUpToPercentageAsync_CreatesCorrectAmount`
-5. ? `WarmUpToPercentageAsync_InvalidPercentage_ThrowsException`
-6. ? `WarmUpAsync_WithCancellation_StopsEarly`
-7. ? `WarmUpAsync_WithFactoryErrors_TracksErrors`
-8. ? `WarmUpAsync_NoFactory_LogsWarning`
-9. ? `WarmUpAsync_AlreadyAtTarget_DoesNothing`
-10. ? `WarmUpAsync_ParallelCreation_WorksCorrectly`
-11. ? `GetWarmupStatus_BeforeWarmup_ReturnsDefault`
-12. ? `WarmUpAsync_TracksProgress`
-13. ? `WithAutoWarmup_WarmsUpOnStartup`
-14. ? `WithAutoWarmupPercentage_WarmsUpCorrectly`
-15. ? `WithAutoWarmupPercentage_InvalidPercentage_ThrowsException`
-16. ? `ConfigurePoolWarmup_MultiplePools_WarmsUpAll`
+1. `WarmUpAsync_WithTargetSize_CreatesObjects`
+2. `WarmUpAsync_WithExistingObjects_OnlyCreatesNeeded`
+3. `WarmUpAsync_ExceedingMaxSize_RespectsLimit`
+4. `WarmUpToPercentageAsync_CreatesCorrectAmount`
+5. `WarmUpToPercentageAsync_InvalidPercentage_ThrowsException`
+6. `WarmUpAsync_WithCancellation_StopsEarly`
+7. `WarmUpAsync_WithFactoryErrors_TracksErrors`
+8. `WarmUpAsync_NoFactory_LogsWarning`
+9. `WarmUpAsync_AlreadyAtTarget_DoesNothing`
+10. `WarmUpAsync_ParallelCreation_WorksCorrectly`
+11. `GetWarmupStatus_BeforeWarmup_ReturnsDefault`
+12. `WarmUpAsync_TracksProgress`
+13. `WithAutoWarmup_WarmsUpOnStartup`
+14. `WithAutoWarmupPercentage_WarmsUpCorrectly`
+15. `WithAutoWarmupPercentage_InvalidPercentage_ThrowsException`
+16. `ConfigurePoolWarmup_MultiplePools_WarmsUpAll`
 
 ---
 
-## ?? **Use Cases**
+## **Use Cases**
 
 ### 1. Database Connection Pools
 ```csharp
@@ -200,17 +200,17 @@ app.MapHealthChecks("/health/ready");
 
 ---
 
-## ?? **Documentation Updates**
+## **Documentation Updates**
 
 ### README.md
-- ? Added warm-up to "What's New" section
-- ? Added to features list
-- ? Updated Quick Start with warm-up example
-- ? Updated version history
-- ? Updated test count to 131
+- Added warm-up to "What's New" section
+- Added to features list
+- Updated Quick Start with warm-up example
+- Updated version history
+- Updated test count to 131
 
 ### DEPENDENCY_INJECTION.md
-- ?? **To be added:** Comprehensive warm-up section with:
+- **To be added:** Comprehensive warm-up section with:
   - Overview and benefits
   - Basic usage examples
   - Advanced scenarios
@@ -220,7 +220,7 @@ app.MapHealthChecks("/health/ready");
 
 ---
 
-## ?? **Technical Implementation**
+## **Technical Implementation**
 
 ### Thread Safety
 - Uses `ConcurrentStack<T>` for available objects
@@ -242,7 +242,7 @@ app.MapHealthChecks("/health/ready");
 
 ---
 
-## ? **Production Ready**
+## **Production Ready**
 
 - **Thread-safe**: Fully concurrent operations
 - **Well-tested**: 16 comprehensive tests
@@ -253,17 +253,17 @@ app.MapHealthChecks("/health/ready");
 
 ---
 
-## ?? **Next Steps**
+## **Next Steps**
 
-1. ? **Implementation complete** - All code working
-2. ? **Tests passing** - 131/131 (100%)
-3. ? **README updated** - Feature documented
-4. ?? **DEPENDENCY_INJECTION.md** - Add comprehensive warm-up section
-5. ?? **Ready for production use**
+1. **Implementation complete** - All code working
+2. **Tests passing** - 131/131 (100%)
+3. **README updated** - Feature documented
+4. **DEPENDENCY_INJECTION.md** - Add comprehensive warm-up section
+5. **Ready for production use**
 
 ---
 
-## ?? **Package Information**
+## **Package Information**
 
 - **Version:** 3.1.0
 - **New Features:**
@@ -276,14 +276,14 @@ app.MapHealthChecks("/health/ready");
 
 ---
 
-## ?? **Summary**
+## **Summary**
 
 The pool warm-up/pre-population feature has been successfully implemented with:
 
-- ? Complete functionality
-- ? Full test coverage
-- ? DI integration
-- ? Documentation
-- ? Production-ready code
+- Complete functionality
+- Full test coverage
+- DI integration
+- Documentation
+- Production-ready code
 
 **The feature eliminates cold-start latency and ensures pools are ready to serve requests immediately upon application startup!**

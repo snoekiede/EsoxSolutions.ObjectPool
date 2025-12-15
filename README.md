@@ -4,9 +4,9 @@
 
 EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
-## ? What's New in Version 4.0.0
+## What's New in Version 4.0.0
 
-### ?? Complete Production-Ready Suite
+### Complete Production-Ready Suite
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
@@ -24,48 +24,48 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ### Previous Updates (v3.0)
 
-#### ?? Performance & Reliability
+#### Performance & Reliability
 - **20-40% faster** queryable pool operations with optimized `TryGetObject(query)` implementation
 - **Critical bug fix**: Eliminated race condition in `DynamicObjectPool` that could cause object creation failures under high concurrency
 - **Thread-safe disposal**: Improved `PoolModel<T>` disposal pattern using modern atomic operations
 
-#### ?? Modern C# 14 Features
+#### Modern C# 14 Features
 - **Collection expressions**: Cleaner initialization syntax (`[1, 2, 3]` instead of `new List<int> { 1, 2, 3 }`)
 - **Primary constructors**: Simplified class declarations
 - **ArgumentNullException.ThrowIfNull**: Modern null checking patterns
 - **Sealed classes**: Better performance optimization opportunities
 
-#### ?? Technical Improvements
+#### Technical Improvements
 - **Optimized bulk operations**: Uses `PushRange` for returning multiple objects efficiently
 - **Early exit optimization**: Query operations exit immediately when match found
 - **Reduced allocations**: Eliminated redundant snapshots and LINQ overhead
 - **Better statistics**: More accurate tracking under concurrent load
 
-#### ? Quality Assurance
+#### Quality Assurance
 - **100% test success rate**: All 186 tests passing
 - **Stress tested**: Verified with 500 concurrent threads on 100 objects
 - **Production ready**: Comprehensive validation across .NET 8, 9, and 10
 
 ## Features
     
-- **?? Dependency Injection** - First-class ASP.NET Core and Generic Host support
-- **????? Health Checks** - ASP.NET Core Health Checks integration for monitoring
-- **?? OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
-- **?? Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
-- **? Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
-- **??? Circuit Breaker** - Protect against cascading failures with automatic recovery
-- **?? Lifecycle Hooks** - Execute custom logic at object creation, acquisition, return, and disposal
-- **?? Scoped Pools** - Multi-tenancy support with per-tenant/user/context pool isolation
-- **?? Thread-safe object pooling** with lock-free concurrent operations
-- **?? Automatic return of objects** via IDisposable pattern
-- **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
-- **?? Queryable pools** for finding objects matching predicates
-- **?? Dynamic pools** with factory methods for on-demand object creation
-- **?? Health monitoring** with real-time status and utilization metrics
-- **?? Prometheus metrics** exportable format with tags/labels
-- **?? Pool configuration** for max size, active objects, validation, and timeouts
-- **??? Try* methods** for non-throwing retrieval patterns
-- **? High-performance** with O(1) get/return operations
+- **Dependency Injection** - First-class ASP.NET Core and Generic Host support
+- **Health Checks** - ASP.NET Core Health Checks integration for monitoring
+- **OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
+- **Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
+- **Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
+- **Circuit Breaker** - Protect against cascading failures with automatic recovery
+- **Lifecycle Hooks** - Execute custom logic at object creation, acquisition, return, and disposal
+- **Scoped Pools** - Multi-tenancy support with per-tenant/user/context pool isolation
+- **Thread-safe object pooling** with lock-free concurrent operations
+- **Automatic return of objects** via IDisposable pattern
+- **Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
+- **Queryable pools** for finding objects matching predicates
+- **Dynamic pools** with factory methods for on-demand object creation
+- **Health monitoring** with real-time status and utilization metrics
+- **Prometheus metrics** exportable format with tags/labels
+- **Pool configuration** for max size, active objects, validation, and timeouts
+- **Try* methods** for non-throwing retrieval patterns
+- **High-performance** with O(1) get/return operations
 
 ## Quick Start
 
@@ -117,11 +117,11 @@ app.Run();
 ```
 
 **Benefits:**
-- ? **Zero cold-start latency** - Objects pre-created during startup
-- ? **Immediate availability** - First request served instantly
-- ? **Configurable warm-up** - Target size or percentage of capacity
-- ? **Async warm-up** - Non-blocking startup
-- ? **Progress tracking** - Monitor warm-up status and duration
+- **Zero cold-start latency** - Objects pre-created during startup
+- **Immediate availability** - First request served instantly
+- **Configurable warm-up** - Target size or percentage of capacity
+- **Async warm-up** - Non-blocking startup
+- **Progress tracking** - Monitor warm-up status and duration
 
 **Health Check Response:**
 ```json
@@ -383,21 +383,21 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 ## Version History
 
 ### 4.0.0 (Current) - January 2025
-- ? **Complete Production-Ready Suite**: All enterprise features integrated and tested
-- ? **Dependency Injection**: First-class ASP.NET Core and Generic Host support
-- ? **Health Checks**: ASP.NET Core Health Checks integration with custom thresholds
-- ? **OpenTelemetry**: Native metrics using System.Diagnostics.Metrics API
-- ? **Pool Warm-up**: Pre-population for zero cold-start latency
-- ? **Eviction / TTL**: Automatic stale object removal with configurable policies
-- ? **Circuit Breaker**: Protection against cascading failures with automatic recovery
-- ? **Lifecycle Hooks**: Custom object lifecycle management at all stages
-- ? **Scoped Pools**: Multi-tenancy with per-tenant/user/context pool isolation
-- ? **Monitoring Integration**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
-- ? **Fluent API**: Builder pattern for intuitive pool configuration
-- ? **Service Integration**: Factory methods with dependency injection support
-- ? **Kubernetes Ready**: Liveness and readiness probe support
-- ?? Comprehensive documentation for all features
-- ?? **186/186 tests passing** (100% success rate)
+- **Complete Production-Ready Suite**: All enterprise features integrated and tested
+- **Dependency Injection**: First-class ASP.NET Core and Generic Host support
+- **Health Checks**: ASP.NET Core Health Checks integration with custom thresholds
+- **OpenTelemetry**: Native metrics using System.Diagnostics.Metrics API
+- **Pool Warm-up**: Pre-population for zero cold-start latency
+- **Eviction / TTL**: Automatic stale object removal with configurable policies
+- **Circuit Breaker**: Protection against cascading failures with automatic recovery
+- **Lifecycle Hooks**: Custom object lifecycle management at all stages
+- **Scoped Pools**: Multi-tenancy with per-tenant/user/context pool isolation
+- **Monitoring Integration**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
+- **Fluent API**: Builder pattern for intuitive pool configuration
+- **Service Integration**: Factory methods with dependency injection support
+- **Kubernetes Ready**: Liveness and readiness probe support
+- Comprehensive documentation for all features
+- **186/186 tests passing** (100% success rate)
   - 83 original core tests
   - 12 dependency injection tests
   - 9 health check tests
@@ -407,20 +407,20 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
   - 16 circuit breaker tests
   - 12 lifecycle hooks tests
   - 16 scoped pools tests
-- ?? **Production Certified**: Battle-tested and ready for enterprise deployment
+- **Production Certified**: Battle-tested and ready for enterprise deployment
 
 ### 3.1.0 - January 2025
-- ? Individual feature releases leading to v4.0.0
+- Individual feature releases leading to v4.0.0
 - Various improvements and bug fixes
 
 ### 3.0.0 - November 2024
-- ? Added support for .NET 10
-- ? 20-40% performance improvement for queryable pool operations
-- ?? **Critical fix**: Eliminated race condition in `DynamicObjectPool` under high concurrency
-- ?? Modern C# 14 patterns: collection expressions, primary constructors, sealed classes
-- ?? 100% test pass rate (83/83 tests)
-- ?? Added Prometheus metrics exporter
-- ? Production-ready certification
+- Added support for .NET 10
+- 20-40% performance improvement for queryable pool operations
+- **Critical fix**: Eliminated race condition in `DynamicObjectPool` under high concurrency
+- Modern C# 14 patterns: collection expressions, primary constructors, sealed classes
+- 100% test pass rate (83/83 tests)
+- Added Prometheus metrics exporter
+- Production-ready certification
 
 ### 2.1.0
 - Added PoolConfiguration for flexible pool behavior
@@ -460,17 +460,17 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 ## Production Use
 
 This library is production-ready and suitable for:
-- ? High-traffic web applications (ASP.NET Core)
-- ? Microservices architectures
-- ? Cloud deployments (Azure, AWS, Kubernetes)
-- ? Container orchestration (Docker, Kubernetes)
-- ? Enterprise systems with multi-tenancy
-- ? Real-time applications
-- ? Database connection pooling
-- ? Network client pooling
-- ? Mission-critical applications requiring circuit breaker protection
-- ? Applications requiring automatic resource cleanup (eviction)
-- ? Systems needing comprehensive observability (OpenTelemetry)
+- High-traffic web applications (ASP.NET Core)
+- Microservices architectures
+- Cloud deployments (Azure, AWS, Kubernetes)
+- Container orchestration (Docker, Kubernetes)
+- Enterprise systems with multi-tenancy
+- Real-time applications
+- Database connection pooling
+- Network client pooling
+- Mission-critical applications requiring circuit breaker protection
+- Applications requiring automatic resource cleanup (eviction)
+- Systems needing comprehensive observability (OpenTelemetry)
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for production deployment guidance.
 

@@ -1,6 +1,6 @@
 # Eviction / Time-to-Live (TTL) Feature - Implementation Summary - Version 4.0.0
 
-## ?? **Successfully Implemented!**
+## **Successfully Implemented!**
 
 All 186 tests passing (100% success rate)
 - 83 original core tests
@@ -12,7 +12,7 @@ All 186 tests passing (100% success rate)
 
 ---
 
-## ?? **New Files Created**
+## **New Files Created**
 
 ### 1. **EvictionConfiguration.cs** - Configuration and Models
 - `EvictionPolicy` enum (None, TimeToLive, IdleTimeout, Combined)
@@ -59,7 +59,7 @@ All 186 tests passing (100% success rate)
 
 ---
 
-## ?? **Usage Examples**
+## **Usage Examples**
 
 ### Time-to-Live (TTL) Eviction
 ```csharp
@@ -126,44 +126,44 @@ Console.WriteLine($"Idle evictions: {stats.IdleEvictions}");
 
 ---
 
-## ? **Key Features**
+## **Key Features**
 
 ### Eviction Policies
-- ? **None** - No eviction (default behavior)
-- ? **TimeToLive** - Objects expire after specified time
-- ? **IdleTimeout** - Objects expire after being idle
-- ? **Combined** - Either TTL or idle timeout triggers eviction
-- ? **Custom** - User-defined eviction predicate
+- **None** - No eviction (default behavior)
+- **TimeToLive** - Objects expire after specified time
+- **IdleTimeout** - Objects expire after being idle
+- **Combined** - Either TTL or idle timeout triggers eviction
+- **Custom** - User-defined eviction predicate
 
 ### Object Tracking
-- ? **CreatedAt** - When object entered the pool
-- ? **LastAccessedAt** - Last time object was retrieved
-- ? **LastReturnedAt** - Last time object was returned
-- ? **AccessCount** - Number of times retrieved
-- ? **Age** - Time since creation
-- ? **IdleTime** - Time since last access
-- ? **Custom tags** - User-defined metadata
+- **CreatedAt** - When object entered the pool
+- **LastAccessedAt** - Last time object was retrieved
+- **LastReturnedAt** - Last time object was returned
+- **AccessCount** - Number of times retrieved
+- **Age** - Time since creation
+- **IdleTime** - Time since last access
+- **Custom tags** - User-defined metadata
 
 ### Background Eviction
-- ? **Configurable interval** - How often to check
-- ? **Batch limits** - Max evictions per run
-- ? **Non-blocking** - Runs on background thread
-- ? **Manual trigger** - On-demand eviction support
-- ? **Automatic disposal** - IDisposable objects cleaned up
+- **Configurable interval** - How often to check
+- **Batch limits** - Max evictions per run
+- **Non-blocking** - Runs on background thread
+- **Manual trigger** - On-demand eviction support
+- **Automatic disposal** - IDisposable objects cleaned up
 
 ### Statistics & Monitoring
-- ? **TotalEvictions** - Total objects removed
-- ? **TtlEvictions** - Count of TTL-based evictions
-- ? **IdleEvictions** - Count of idle timeout evictions
-- ? **CustomEvictions** - Count of custom predicate evictions
-- ? **EvictionRuns** - Number of eviction cycles
-- ? **LastEvictionRun** - Timestamp of last check
-- ? **LastEvictionDuration** - How long last check took
-- ? **AverageEvictionsPerRun** - Performance metric
+- **TotalEvictions** - Total objects removed
+- **TtlEvictions** - Count of TTL-based evictions
+- **IdleEvictions** - Count of idle timeout evictions
+- **CustomEvictions** - Count of custom predicate evictions
+- **EvictionRuns** - Number of eviction cycles
+- **LastEvictionRun** - Timestamp of last check
+- **LastEvictionDuration** - How long last check took
+- **AverageEvictionsPerRun** - Performance metric
 
 ---
 
-## ?? **Configuration Options**
+## **Configuration Options**
 
 ### EvictionConfiguration Properties
 
@@ -198,7 +198,7 @@ public class EvictionConfiguration
 
 ---
 
-## ?? **Use Cases**
+## **Use Cases**
 
 ### 1. Database Connection Pools
 ```csharp
@@ -249,21 +249,21 @@ builder.Services.AddDynamicObjectPool<ServiceClient>(
 
 All 11 eviction tests passing:
 
-1. ? `TimeToLive_ExpiredObjects_AreEvicted`
-2. ? `IdleTimeout_IdleObjects_AreEvicted`
-3. ? `CombinedPolicy_EvictsOnEitherCondition`
-4. ? `GetObject_SkipsExpiredObjects`
-5. ? `CustomEvictionPredicate_WorksCorrectly`
-6. ? `EvictionStatistics_TrackCorrectly`
-7. ? `DisposableObjects_AreDisposedWhenEvicted`
-8. ? `NoEviction_WhenPolicyIsNone`
-9. ? `EvictionDoesNotAffectActiveObjects`
-10. ? `BackgroundEviction_WorksAutomatically`
-11. ? `MaxEvictionsPerRun_LimitsEvictions`
+1. `TimeToLive_ExpiredObjects_AreEvicted`
+2. `IdleTimeout_IdleObjects_AreEvicted`
+3. `CombinedPolicy_EvictsOnEitherCondition`
+4. `GetObject_SkipsExpiredObjects`
+5. `CustomEvictionPredicate_WorksCorrectly`
+6. `EvictionStatistics_TrackCorrectly`
+7. `DisposableObjects_AreDisposedWhenEvicted`
+8. `NoEviction_WhenPolicyIsNone`
+9. `EvictionDoesNotAffectActiveObjects`
+10. `BackgroundEviction_WorksAutomatically`
+11. `MaxEvictionsPerRun_LimitsEvictions`
 
 ---
 
-## ?? **Technical Implementation**
+## **Technical Implementation**
 
 ### Thread Safety
 - Uses `ConcurrentDictionary<T, ObjectMetadata>` for tracking
@@ -285,7 +285,7 @@ All 11 eviction tests passing:
 
 ---
 
-## ?? **Performance Benefits**
+## **Performance Benefits**
 
 ### Without Eviction
 ```
@@ -310,7 +310,7 @@ Overhead:         ~1ms per eviction check
 
 ---
 
-## ?? **Best Practices**
+## **Best Practices**
 
 ### 1. Choose Appropriate Policies
 ```csharp
@@ -369,7 +369,7 @@ builder.Services.AddDynamicObjectPool<HttpClient>(
 
 ---
 
-## ?? **Integration with Existing Features**
+## **Integration with Existing Features**
 
 ### Works with Warm-up
 ```csharp
@@ -395,7 +395,7 @@ builder.Services.AddHealthChecks()
 
 ---
 
-## ? **Production Ready**
+## **Production Ready**
 
 - **Thread-safe**: All operations concurrent-safe
 - **Well-tested**: 11 comprehensive tests
@@ -407,7 +407,7 @@ builder.Services.AddHealthChecks()
 
 ---
 
-## ?? **Summary**
+## **Summary**
 
 The Eviction / Time-to-Live (TTL) feature has been successfully implemented with:
 
@@ -422,7 +422,7 @@ The Eviction / Time-to-Live (TTL) feature has been successfully implemented with
 
 ---
 
-## ?? **Package Information**
+## **Package Information**
 
 - **Version:** 3.1.0
 - **New Features:**

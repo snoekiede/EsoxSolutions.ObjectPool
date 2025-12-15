@@ -253,35 +253,35 @@ builder.Services.AddDynamicObjectPool<MyObject>(
 ## ? **Key Features**
 
 ### Lifecycle Events
-- ? **OnCreate** - Called when object is created by factory
-- ? **OnAcquire** - Called when object is retrieved from pool
-- ? **OnReturn** - Called when object is returned to pool
-- ? **OnDispose** - Called when object is disposed/removed
-- ? **OnEvict** - Called when object is evicted (with reason)
-- ? **OnValidationFailed** - Called when validation fails
+- **OnCreate** - Called when object is created by factory
+- **OnAcquire** - Called when object is retrieved from pool
+- **OnReturn** - Called when object is returned to pool
+- **OnDispose** - Called when object is disposed/removed
+- **OnEvict** - Called when object is evicted (with reason)
+- **OnValidationFailed** - Called when validation fails
 
 ### Async Support
-- ? **OnCreateAsync** - Async object creation
-- ? **OnAcquireAsync** - Async acquisition logic
-- ? **OnReturnAsync** - Async return logic
-- ? **OnDisposeAsync** - Async cleanup
+- **OnCreateAsync** - Async object creation
+- **OnAcquireAsync** - Async acquisition logic
+- **OnReturnAsync** - Async return logic
+- **OnDisposeAsync** - Async cleanup
 
 ### Statistics & Monitoring
-- ? **CreateCalls** - Number of create hook executions
-- ? **AcquireCalls** - Number of acquire hook executions
-- ? **ReturnCalls** - Number of return hook executions
-- ? **DisposeCalls** - Number of dispose hook executions
-- ? **EvictCalls** - Number of eviction hook executions
-- ? **ValidationFailedCalls** - Number of validation failure hooks
-- ? **ErrorCount** - Number of hook execution errors
-- ? **AverageExecutionTime** - Performance metrics
-- ? **TotalExecutionTime** - Cumulative execution time
+- **CreateCalls** - Number of create hook executions
+- **AcquireCalls** - Number of acquire hook executions
+- **ReturnCalls** - Number of return hook executions
+- **DisposeCalls** - Number of dispose hook executions
+- **EvictCalls** - Number of eviction hook executions
+- **ValidationFailedCalls** - Number of validation failure hooks
+- **ErrorCount** - Number of hook execution errors
+- **AverageExecutionTime** - Performance metrics
+- **TotalExecutionTime** - Cumulative execution time
 
 ### Error Handling
-- ? **ContinueOnError** - Continue pool operations if hooks fail
-- ? **Custom error handler** - Optional error callback
-- ? **Error statistics** - Track hook failures
-- ? **Last error tracking** - Inspect most recent failure
+- **ContinueOnError** - Continue pool operations if hooks fail
+- **Custom error handler** - Optional error callback
+- **Error statistics** - Track hook failures
+- **Last error tracking** - Inspect most recent failure
 
 ---
 
@@ -301,7 +301,7 @@ public enum EvictionReason
 
 ---
 
-## ?? **Use Cases**
+## **Use Cases**
 
 ### 1. Database Connection Initialization
 ```csharp
@@ -437,26 +437,26 @@ builder.Services.AddDynamicObjectPool<AuditableResource>(
 
 ---
 
-## ?? **Test Coverage**
+## **Test Coverage**
 
 All 12 lifecycle hook tests passing:
 
-1. ? `OnCreate_IsCalled_WhenObjectCreated`
-2. ? `OnAcquire_IsCalled_WhenObjectRetrieved`
-3. ? `OnReturn_IsCalled_WhenObjectReturned`
-4. ? `OnDispose_IsCalled_WhenObjectDisposed`
-5. ? `OnEvict_IsCalled_WhenObjectEvicted`
-6. ? `LifecycleHookManager_TracksStatistics`
-7. ? `LifecycleHookManager_ContinuesOnError_WhenConfigured`
-8. ? `LifecycleHookManager_ThrowsOnError_WhenConfigured`
-9. ? `AsyncHooks_ExecuteCorrectly`
-10. ? `GetLifecycleHookStatistics_ReturnsStats`
-11. ? `MultipleHooks_ExecuteInOrder`
-12. ? `LifecycleHooks_WorkWithExistingObjects`
+1. `OnCreate_IsCalled_WhenObjectCreated`
+2. `OnAcquire_IsCalled_WhenObjectRetrieved`
+3. `OnReturn_IsCalled_WhenObjectReturned`
+4. `OnDispose_IsCalled_WhenObjectDisposed`
+5. `OnEvict_IsCalled_WhenObjectEvicted`
+6. `LifecycleHookManager_TracksStatistics`
+7. `LifecycleHookManager_ContinuesOnError_WhenConfigured`
+8. `LifecycleHookManager_ThrowsOnError_WhenConfigured`
+9. `AsyncHooks_ExecuteCorrectly`
+10. `GetLifecycleHookStatistics_ReturnsStats`
+11. `MultipleHooks_ExecuteInOrder`
+12. `LifecycleHooks_WorkWithExistingObjects`
 
 ---
 
-## ?? **Technical Implementation**
+## **Technical Implementation**
 
 ### Thread Safety
 - Hook manager uses thread-safe statistics updates
@@ -487,7 +487,7 @@ var manager = new LifecycleHookManager<T>(
 
 ---
 
-## ?? **Performance Impact**
+## **Performance Impact**
 
 ### Without Lifecycle Hooks
 ```
@@ -512,7 +512,7 @@ Overhead:     Depends on hook logic
 
 ---
 
-## ?? **Best Practices**
+## **Best Practices**
 
 ### 1. Keep Hooks Fast
 ```csharp
@@ -575,7 +575,7 @@ builder.Services.AddDynamicObjectPool<MyResource>(...)
 
 ---
 
-## ?? **Integration with Existing Features**
+## **Integration with Existing Features**
 
 ### Works with Warm-up
 ```csharp
@@ -607,7 +607,7 @@ builder.Services.AddHealthChecks()
 
 ---
 
-## ? **Production Ready**
+## **Production Ready**
 
 - **Thread-safe**: All operations concurrent-safe
 - **Well-tested**: 12 comprehensive tests
@@ -619,7 +619,7 @@ builder.Services.AddHealthChecks()
 
 ---
 
-## ?? **Summary**
+## **Summary**
 
 The Lifecycle Hooks feature has been successfully implemented with:
 
@@ -635,7 +635,7 @@ The Lifecycle Hooks feature has been successfully implemented with:
 
 ---
 
-## ?? **Package Information**
+## **Package Information**
 
 - **Version:** 3.1.0
 - **New Features:**

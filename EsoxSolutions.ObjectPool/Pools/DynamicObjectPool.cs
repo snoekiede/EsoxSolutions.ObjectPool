@@ -1,7 +1,9 @@
 ﻿using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
+using EsoxSolutions.ObjectPool.Warmup;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace EsoxSolutions.ObjectPool.Pools
 {
@@ -9,12 +11,17 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// Dynamic object pool that can create new objects using a factory method when the pool is empty
     /// </summary>
     /// <typeparam name="T">the type to be stored in the object pool</typeparam>
-    public class DynamicObjectPool<T> : ObjectPool<T> where T:class
+    public class DynamicObjectPool<T> : ObjectPool<T>, IObjectPoolWarmer<T> where T:class
     {
         /// <summary>
         /// The factory method to be used to create new objects
         /// </summary>
-        private readonly Func<T>? _factory;        
+        private readonly Func<T>? _factory;
+
+        /// <summary>
+        /// Warm-up status tracking
+        /// </summary>
+        private WarmupStatus _warmupStatus = new();
 
         /// <summary>
         /// The constructor for the queryable object pool
@@ -150,5 +157,121 @@ namespace EsoxSolutions.ObjectPool.Pools
             
             return new PoolModel<T>(newObject, this);
         }
+
+        #region IObjectPoolWarmer Implementation
+
+        /// <summary>
+        /// Warms up the pool by pre-creating objects to the target size
+        /// </summary>
+        public async Task WarmUpAsync(int targetSize, CancellationToken cancellationToken = default)
+        {
+            if (_factory == null)
+            {
+                Logger?.LogWarning("Cannot warm up pool: no factory method provided");
+                _warmupStatus.Errors.Add("No factory method available");
+                return;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            var currentSize = AvailableObjects.Count;
+            var objectsToCreate = Math.Min(targetSize - currentSize, Configuration.MaxPoolSize - currentSize);
+
+            if (objectsToCreate <= 0)
+            {
+                Logger?.LogInformation("Pool already at target size: {CurrentSize}/{TargetSize}", currentSize, targetSize);
+                _warmupStatus.IsWarmedUp = true;
+                _warmupStatus.ObjectsCreated = 0;
+                _warmupStatus.TargetSize = targetSize;
+                return;
+            }
+
+            _warmupStatus = new WarmupStatus
+            {
+                TargetSize = targetSize,
+                ObjectsCreated = 0
+            };
+
+            Logger?.LogInformation("Starting pool warm-up: creating {Count} objects", objectsToCreate);
+
+            var batchSize = Math.Min(Environment.ProcessorCount * 2, objectsToCreate);
+            var tasks = new List<Task<T?>>();
+
+            try
+            {
+                for (int i = 0; i < objectsToCreate && !cancellationToken.IsCancellationRequested; i++)
+                {
+                    tasks.Add(Task.Run(() =>
+                    {
+                        try
+                        {
+                            return _factory.Invoke();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger?.LogError(ex, "Error creating object during warm-up");
+                            _warmupStatus.Errors.Add($"Factory error: {ex.Message}");
+                            return null;
+                        }
+                    }, cancellationToken));
+
+                    // Process in batches to avoid overwhelming the system
+                    if (tasks.Count >= batchSize || i == objectsToCreate - 1)
+                    {
+                        var results = await Task.WhenAll(tasks);
+                        
+                        foreach (var obj in results.Where(o => o != null))
+                        {
+                            AvailableObjects.Push(obj!);
+                            _warmupStatus.ObjectsCreated++;
+                        }
+
+                        tasks.Clear();
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger?.LogInformation("Pool warm-up cancelled after creating {Created} objects", _warmupStatus.ObjectsCreated);
+            }
+
+            stopwatch.Stop();
+            _warmupStatus.WarmupDuration = stopwatch.Elapsed;
+            _warmupStatus.IsWarmedUp = true;
+            _warmupStatus.CompletedAt = DateTime.UtcNow;
+
+            Logger?.LogInformation(
+                "Pool warm-up completed: created {Created}/{Target} objects in {Duration}ms",
+                _warmupStatus.ObjectsCreated,
+                targetSize,
+                stopwatch.ElapsedMilliseconds);
+        }
+
+        /// <summary>
+        /// Warms up the pool to a percentage of maximum capacity
+        /// </summary>
+        public async Task WarmUpToPercentageAsync(double targetPercentage, CancellationToken cancellationToken = default)
+        {
+            if (targetPercentage < 0 || targetPercentage > 100)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetPercentage), "Target percentage must be between 0 and 100");
+            }
+
+            var maxSize = Configuration.MaxPoolSize == int.MaxValue 
+                ? 100  // Default to 100 if unlimited
+                : Configuration.MaxPoolSize;
+
+            var targetSize = (int)Math.Ceiling(maxSize * (targetPercentage / 100.0));
+            await WarmUpAsync(targetSize, cancellationToken);
+        }
+
+        /// <summary>
+        /// Gets the current warm-up status
+        /// </summary>
+        public WarmupStatus GetWarmupStatus()
+        {
+            return _warmupStatus;
+        }
+
+        #endregion
     }
 }

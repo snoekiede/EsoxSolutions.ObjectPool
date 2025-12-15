@@ -6,10 +6,11 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection, Health Checks & OpenTelemetry
+### ?? Dependency Injection, Health Checks, OpenTelemetry & Warm-up
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
+- **Pool warm-up/pre-population** to eliminate cold-start latency
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
@@ -46,6 +47,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **?? Dependency Injection** - First-class ASP.NET Core and Generic Host support
 - **????? Health Checks** - ASP.NET Core Health Checks integration for monitoring
 - **?? OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
+- **?? Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -59,7 +61,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## Quick Start
 
-### With Dependency Injection, Health Checks & OpenTelemetry (Recommended)
+### With Dependency Injection, Health Checks, OpenTelemetry & Warm-up (Recommended)
 
 ```csharp
 using EsoxSolutions.ObjectPool.DependencyInjection;
@@ -68,15 +70,20 @@ using OpenTelemetry.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register pools
-builder.Services.AddObjectPool<HttpClient>(pool => pool
-    .WithFactory(() => new HttpClient())
-    .WithMaxSize(100)
-    .WithMaxActiveObjects(50));
+// Register pools with warm-up
+builder.Services.AddDynamicObjectPool<HttpClient>(
+    sp => new HttpClient(),
+    config =>
+    {
+        config.MaxPoolSize = 100;
+        config.MaxActiveObjects = 50;
+    })
+    .WithAutoWarmup(50); // Pre-create 50 objects on startup
 
-builder.Services.AddObjectPool<DbConnection>(pool => pool
-    .WithFactory(() => new SqlConnection(connectionString))
-    .WithMaxSize(50));
+builder.Services.AddDynamicObjectPool<DbConnection>(
+    sp => new SqlConnection(connectionString),
+    config => config.MaxPoolSize = 50)
+    .WithAutoWarmupPercentage(75); // Pre-create 75% of capacity
 
 // Register health checks
 builder.Services.AddHealthChecks()
@@ -100,6 +107,13 @@ app.MapPrometheusScrapingEndpoint();
 
 app.Run();
 ```
+
+**Benefits:**
+- ? **Zero cold-start latency** - Objects pre-created during startup
+- ? **Immediate availability** - First request served instantly
+- ? **Configurable warm-up** - Target size or percentage of capacity
+- ? **Async warm-up** - Non-blocking startup
+- ? **Progress tracking** - Monitor warm-up status and duration
 
 **Health Check Response:**
 ```json
@@ -154,6 +168,7 @@ public class MyService
 **See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for comprehensive examples including:**
 - ASP.NET Core Health Checks setup
 - OpenTelemetry metrics integration
+- Pool warm-up and pre-population strategies
 - Prometheus, Grafana, Azure Monitor integration
 - Kubernetes liveness/readiness probes
 - Custom health check thresholds
@@ -300,13 +315,14 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 - ? **New**: First-class dependency injection support for ASP.NET Core
 - ? **New**: ASP.NET Core Health Checks integration with custom thresholds
 - ? **New**: OpenTelemetry metrics using System.Diagnostics.Metrics API
+- ? **New**: Pool warm-up/pre-population for zero cold-start latency
 - ? **New**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
 - ? **New**: Kubernetes liveness and readiness probe support
-- ?? Added comprehensive DI, Health Checks, and OpenTelemetry documentation
-- ?? 115/115 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry tests)
+- ?? Added comprehensive DI, Health Checks, OpenTelemetry, and warm-up documentation
+- ?? 131/131 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10

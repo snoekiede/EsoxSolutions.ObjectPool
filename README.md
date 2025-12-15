@@ -204,12 +204,12 @@ app.Run();
 ```
 
 **Benefits:**
-- ? **Zero cold-start latency** - Objects pre-created during startup
-- ? **Automatic cleanup** - Stale objects removed automatically
-- ? **Resource efficiency** - No memory leaks from expired objects
-- ? **Configurable policies** - TTL, idle timeout, or custom eviction logic
-- ? **Immediate availability** - First request served instantly
-- ? **Progress tracking** - Monitor warm-up and eviction status
+- **Zero cold-start latency** - Objects pre-created during startup
+- **Automatic cleanup** - Stale objects removed automatically
+- **Resource efficiency** - No memory leaks from expired objects
+- **Configurable policies** - TTL, idle timeout, or custom eviction logic
+- **Immediate availability** - First request served instantly
+- **Progress tracking** - Monitor warm-up and eviction status
 
 ### In Your Service
 
@@ -407,7 +407,7 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
   - 16 circuit breaker tests
   - 12 lifecycle hooks tests
   - 16 scoped pools tests
-- **Production Certified**: Battle-tested and ready for enterprise deployment
+
 
 ### 3.1.0 - January 2025
 - Individual feature releases leading to v4.0.0

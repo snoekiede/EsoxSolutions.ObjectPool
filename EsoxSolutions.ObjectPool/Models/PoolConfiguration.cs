@@ -1,5 +1,6 @@
 using EsoxSolutions.ObjectPool.CircuitBreaker;
 using EsoxSolutions.ObjectPool.Eviction;
+using EsoxSolutions.ObjectPool.Lifecycle;
 
 namespace EsoxSolutions.ObjectPool.Models
 {
@@ -47,5 +48,15 @@ namespace EsoxSolutions.ObjectPool.Models
         /// Circuit breaker configuration for protecting against cascading failures
         /// </summary>
         public CircuitBreakerConfiguration? CircuitBreakerConfiguration { get; set; }
+
+        /// <summary>
+        /// Lifecycle hooks configuration for custom object lifecycle management
+        /// </summary>
+        public object? LifecycleHooks { get; set; }
+
+        /// <summary>
+        /// Whether to continue pool operations if lifecycle hooks throw exceptions
+        /// </summary>
+        public bool ContinueOnLifecycleHookError { get; set; } = true;
     }
 }

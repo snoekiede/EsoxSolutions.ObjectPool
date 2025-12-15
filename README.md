@@ -6,13 +6,14 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection, Health Checks, OpenTelemetry, Warm-up, Eviction & Circuit Breaker
+### ?? Dependency Injection, Health Checks, OpenTelemetry, Warm-up, Eviction, Circuit Breaker & Lifecycle Hooks
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
 - **Pool warm-up/pre-population** to eliminate cold-start latency
 - **Eviction / Time-to-Live (TTL)** support for automatic stale object removal
 - **Circuit Breaker pattern** for protecting against cascading failures
+- **Lifecycle Hooks** for custom object lifecycle management
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
@@ -52,6 +53,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **?? Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
 - **? Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
 - **??? Circuit Breaker** - Protect against cascading failures with automatic recovery
+- **?? Lifecycle Hooks** - Execute custom logic at object creation, acquisition, return, and disposal
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -382,13 +384,14 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 - ? **New**: Pool warm-up/pre-population for zero cold-start latency
 - ? **New**: Eviction / Time-to-Live (TTL) support for automatic stale object removal
 - ? **New**: Circuit Breaker pattern for protecting against cascading failures
+- ? **New**: Lifecycle Hooks for custom object lifecycle management
 - ? **New**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
 - ? **New**: Kubernetes liveness and readiness probe support
-- ?? Added comprehensive DI, Health Checks, OpenTelemetry, warm-up, eviction, and circuit breaker documentation
-- ?? 158/158 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up + 11 eviction + 16 circuit breaker tests)
+- ?? Added comprehensive DI, Health Checks, OpenTelemetry, warm-up, eviction, circuit breaker, and lifecycle hooks documentation
+- ?? 170/170 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up + 11 eviction + 16 circuit breaker + 12 lifecycle hooks tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10

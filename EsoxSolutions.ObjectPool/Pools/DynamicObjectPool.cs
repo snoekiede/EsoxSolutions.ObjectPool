@@ -2,6 +2,7 @@
 using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Eviction;
 using EsoxSolutions.ObjectPool.Exceptions;
+using EsoxSolutions.ObjectPool.Lifecycle;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Warmup;
 using Microsoft.Extensions.Logging;
@@ -41,6 +42,11 @@ namespace EsoxSolutions.ObjectPool.Pools
         private CircuitBreaker.CircuitBreaker? _circuitBreaker;
 
         /// <summary>
+        /// Lifecycle hook manager for object lifecycle events
+        /// </summary>
+        private LifecycleHookManager<T>? _lifecycleHookManager;
+
+        /// <summary>
         /// The constructor for the queryable object pool
         /// </summary>
         /// <param name="initialObjects">the initial objects</param>
@@ -48,6 +54,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             InitializeEviction();
             InitializeCircuitBreaker();
+            InitializeLifecycleHooks();
         }
 
         /// <summary>
@@ -59,6 +66,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             this._factory = factory;
             InitializeEviction();
             InitializeCircuitBreaker();
+            InitializeLifecycleHooks();
         }
 
         /// <summary>
@@ -71,6 +79,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             this._factory = factory;
             InitializeEviction();
             InitializeCircuitBreaker();
+            InitializeLifecycleHooks();
         }
 
         /// <summary>
@@ -93,6 +102,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             this._factory = factory;
             InitializeEviction();
             InitializeCircuitBreaker();
+            InitializeLifecycleHooks();
         }
 
         /// <summary>
@@ -110,6 +120,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             this._factory = factory;
             InitializeEviction();
             InitializeCircuitBreaker();
+            InitializeLifecycleHooks();
         }
 
         private void InitializeCircuitBreaker()
@@ -124,6 +135,19 @@ namespace EsoxSolutions.ObjectPool.Pools
                     "Circuit breaker enabled: FailureThreshold={Threshold}, OpenDuration={Duration}",
                     Configuration.CircuitBreakerConfiguration.FailureThreshold,
                     Configuration.CircuitBreakerConfiguration.OpenDuration);
+            }
+        }
+
+        private void InitializeLifecycleHooks()
+        {
+            if (Configuration.LifecycleHooks is LifecycleHooks<T> hooks)
+            {
+                _lifecycleHookManager = new LifecycleHookManager<T>(
+                    hooks,
+                    Configuration.ContinueOnLifecycleHookError,
+                    (ex, hookName) => Logger?.LogError(ex, "Error executing lifecycle hook: {HookName}", hookName));
+
+                Logger?.LogInformation("Lifecycle hooks enabled");
             }
         }
 
@@ -167,10 +191,20 @@ namespace EsoxSolutions.ObjectPool.Pools
                 var objectsToCheck = AvailableObjects.ToArray();
                 _evictionManager.RunEviction(objectsToCheck, obj =>
                 {
+                    // Execute eviction hook before removing
+                    _lifecycleHookManager?.ExecuteOnEvict(obj, EvictionReason.TimeToLive);
+                    
                     // Remove from available stack
                     if (AvailableObjects.TryPop(out var removed) && EqualityComparer<T>.Default.Equals(removed, obj))
                     {
                         Logger?.LogDebug("Evicted object from pool");
+                        
+                        // Execute dispose hook if object will be disposed
+                        if (Configuration.EvictionConfiguration?.DisposeEvictedObjects == true && 
+                            obj is IDisposable)
+                        {
+                            _lifecycleHookManager?.ExecuteOnDispose(obj);
+                        }
                     }
                     else
                     {
@@ -229,6 +263,9 @@ namespace EsoxSolutions.ObjectPool.Pools
                 {
                     Logger?.LogDebug("Object expired, attempting to evict");
                     
+                    // Execute eviction hook
+                    _lifecycleHookManager?.ExecuteOnEvict(result, EvictionReason.TimeToLive);
+                    
                     // Evict this object
                     _evictionManager.UntrackObject(result);
                     
@@ -237,6 +274,8 @@ namespace EsoxSolutions.ObjectPool.Pools
                     {
                         try
                         {
+                            // Execute dispose hook
+                            _lifecycleHookManager?.ExecuteOnDispose(result);
                             disposable.Dispose();
                         }
                         catch (Exception ex)
@@ -258,6 +297,9 @@ namespace EsoxSolutions.ObjectPool.Pools
             {
                 this.ActiveObjects.TryAdd(result, 0);
                 _evictionManager?.RecordAccess(result);
+                
+                // Execute acquire hook
+                _lifecycleHookManager?.ExecuteOnAcquire(result);
                 
                 statistics.TotalObjectsRetrieved++;
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
@@ -295,9 +337,15 @@ namespace EsoxSolutions.ObjectPool.Pools
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
 
+            // Execute create hook
+            _lifecycleHookManager?.ExecuteOnCreate(newObject);
+
             // Track the new object for eviction
             _evictionManager?.TrackObject(newObject);
             _evictionManager?.RecordAccess(newObject);
+
+            // Execute acquire hook
+            _lifecycleHookManager?.ExecuteOnAcquire(newObject);
 
             // Add directly to active objects without pushing to available first
             this.ActiveObjects.TryAdd(newObject, 0);
@@ -320,13 +368,57 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         public new void ReturnObject(PoolModel<T> obj)
         {
+            if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<>));
+
             var unwrapped = obj.Unwrap();
             
+            if (!this.ActiveObjects.ContainsKey(unwrapped))
+            {
+                Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
+                throw new Exceptions.NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
+            }
+
+            // Execute return hook
+            _lifecycleHookManager?.ExecuteOnReturn(unwrapped);
+            
+            // Validate object if configured
+            if (Configuration is {ValidateOnReturn: true, ValidationFunction: not null})
+            {
+                if (!Configuration.ValidationFunction(unwrapped))
+                {
+                    Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
+                    _lifecycleHookManager?.ExecuteOnValidationFailed(unwrapped);
+                    this.ActiveObjects.TryRemove(unwrapped, out _);
+                    statistics.TotalObjectsReturned++;
+                    statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                    statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                    return;
+                }
+            }
+
+            // Check if we're exceeding pool size limit
+            if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
+            {
+                Logger?.LogDebug(PoolConstants.Messages.PoolAtMaxSize);
+                this.ActiveObjects.TryRemove(unwrapped, out _);
+                statistics.TotalObjectsReturned++;
+                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                return;
+            }
+
             // Record return for eviction tracking
             _evictionManager?.RecordReturn(unwrapped);
-            
-            // Call base implementation
-            base.ReturnObject(obj);
+
+            this.ActiveObjects.TryRemove(unwrapped, out _);
+            this.AvailableObjects.Push(unwrapped);
+
+            statistics.TotalObjectsReturned++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+
+            Logger?.LogDebug(PoolConstants.Messages.ObjectReturnedToPoolActiveAvailable,
+                ActiveObjects.Count, AvailableObjects.Count);
         }
 
         /// <summary>
@@ -343,6 +435,14 @@ namespace EsoxSolutions.ObjectPool.Pools
         public CircuitBreakerStatistics? GetCircuitBreakerStatistics()
         {
             return _circuitBreaker?.GetStatistics();
+        }
+
+        /// <summary>
+        /// Gets lifecycle hook statistics
+        /// </summary>
+        public LifecycleHookStatistics? GetLifecycleHookStatistics()
+        {
+            return _lifecycleHookManager?.GetStatistics();
         }
 
         /// <summary>

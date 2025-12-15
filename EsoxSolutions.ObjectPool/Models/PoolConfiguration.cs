@@ -1,3 +1,5 @@
+using EsoxSolutions.ObjectPool.Eviction;
+
 namespace EsoxSolutions.ObjectPool.Models
 {
     /// <summary>
@@ -35,6 +37,9 @@ namespace EsoxSolutions.ObjectPool.Models
         /// </summary>
         public bool EnableDetailedStatistics { get; set; } = true;
 
-
+        /// <summary>
+        /// Eviction configuration for time-to-live and idle timeout support
+        /// </summary>
+        public EvictionConfiguration? EvictionConfiguration { get; set; }
     }
 }

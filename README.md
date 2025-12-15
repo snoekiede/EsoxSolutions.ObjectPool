@@ -6,11 +6,12 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 
 ## ? What's New in Version 3.1
 
-### ?? Dependency Injection, Health Checks, OpenTelemetry & Warm-up
+### ?? Dependency Injection, Health Checks, OpenTelemetry, Warm-up & Eviction
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
 - **Pool warm-up/pre-population** to eliminate cold-start latency
+- **Eviction / Time-to-Live (TTL)** support for automatic stale object removal
 - **Builder pattern** for easy pool setup
 - **Multiple pool registration** with `AddObjectPools()`
 - **Service provider integration** for factory methods
@@ -48,6 +49,7 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **????? Health Checks** - ASP.NET Core Health Checks integration for monitoring
 - **?? OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
 - **?? Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
+- **? Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
 - **?? Thread-safe object pooling** with lock-free concurrent operations
 - **?? Automatic return of objects** via IDisposable pattern
 - **?? Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation
@@ -144,6 +146,65 @@ app.Run();
 - `objectpool.events.empty` - Pool empty events (counter)
 - `objectpool.operation.duration` - Operation duration histogram
 
+### With Dependency Injection, Health Checks, OpenTelemetry, Warm-up & Eviction (Recommended)
+
+```csharp
+using EsoxSolutions.ObjectPool.DependencyInjection;
+using EsoxSolutions.ObjectPool.HealthChecks;
+using OpenTelemetry.Metrics;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register pools with warm-up and eviction
+builder.Services.AddDynamicObjectPool<HttpClient>(
+    sp => new HttpClient(),
+    config =>
+    {
+        config.MaxPoolSize = 100;
+        config.MaxActiveObjects = 50;
+    })
+    .WithAutoWarmup(50) // Pre-create 50 objects on startup
+    .WithEviction(
+        timeToLive: TimeSpan.FromHours(1),      // Objects expire after 1 hour
+        idleTimeout: TimeSpan.FromMinutes(10)); // or 10 minutes idle
+
+builder.Services.AddDynamicObjectPool<DbConnection>(
+    sp => new SqlConnection(connectionString),
+    config => config.MaxPoolSize = 50)
+    .WithAutoWarmupPercentage(75)
+    .WithIdleTimeout(TimeSpan.FromMinutes(5)); // Evict connections idle for 5 minutes
+
+// Register health checks
+builder.Services.AddHealthChecks()
+    .AddObjectPoolHealthCheck<HttpClient>("http-client-pool")
+    .AddObjectPoolHealthCheck<DbConnection>("database-pool");
+
+// Register OpenTelemetry metrics
+builder.Services.AddObjectPoolMetrics<HttpClient>("http-client-pool");
+builder.Services.AddObjectPoolMetrics<DbConnection>("database-pool");
+
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter("EsoxSolutions.ObjectPool")
+        .AddPrometheusExporter());
+
+var app = builder.Build();
+
+// Add endpoints
+app.MapHealthChecks("/health");
+app.MapPrometheusScrapingEndpoint();
+
+app.Run();
+```
+
+**Benefits:**
+- ? **Zero cold-start latency** - Objects pre-created during startup
+- ? **Automatic cleanup** - Stale objects removed automatically
+- ? **Resource efficiency** - No memory leaks from expired objects
+- ? **Configurable policies** - TTL, idle timeout, or custom eviction logic
+- ? **Immediate availability** - First request served instantly
+- ? **Progress tracking** - Monitor warm-up and eviction status
+
 ### In Your Service
 
 ```csharp
@@ -169,6 +230,7 @@ public class MyService
 - ASP.NET Core Health Checks setup
 - OpenTelemetry metrics integration
 - Pool warm-up and pre-population strategies
+- Eviction / TTL configuration (time-to-live, idle timeout)
 - Prometheus, Grafana, Azure Monitor integration
 - Kubernetes liveness/readiness probes
 - Custom health check thresholds
@@ -316,13 +378,14 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 - ? **New**: ASP.NET Core Health Checks integration with custom thresholds
 - ? **New**: OpenTelemetry metrics using System.Diagnostics.Metrics API
 - ? **New**: Pool warm-up/pre-population for zero cold-start latency
+- ? **New**: Eviction / Time-to-Live (TTL) support for automatic stale object removal
 - ? **New**: Native Prometheus, Grafana, Azure Monitor, AWS CloudWatch support
 - ? **New**: Fluent builder API for pool configuration
 - ? **New**: Service provider integration for factory methods
 - ? **New**: Support for multiple pool registration
 - ? **New**: Kubernetes liveness and readiness probe support
-- ?? Added comprehensive DI, Health Checks, OpenTelemetry, and warm-up documentation
-- ?? 131/131 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up tests)
+- ?? Added comprehensive DI, Health Checks, OpenTelemetry, warm-up, and eviction documentation
+- ?? 142/142 tests passing (83 original + 12 DI + 9 health check + 11 OpenTelemetry + 16 warm-up + 11 eviction tests)
 
 ### 3.0.0 - November 2025
 - ? Added support for .NET 10

@@ -1,4 +1,5 @@
 ﻿using EsoxSolutions.ObjectPool.Constants;
+using EsoxSolutions.ObjectPool.Eviction;
 using EsoxSolutions.ObjectPool.Exceptions;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Warmup;
@@ -24,11 +25,22 @@ namespace EsoxSolutions.ObjectPool.Pools
         private WarmupStatus _warmupStatus = new();
 
         /// <summary>
+        /// Eviction manager for TTL and idle timeout support
+        /// </summary>
+        private EvictionManager<T>? _evictionManager;
+
+        /// <summary>
+        /// Timer for periodic eviction checks
+        /// </summary>
+        private Timer? _evictionCheckTimer;
+
+        /// <summary>
         /// The constructor for the queryable object pool
         /// </summary>
         /// <param name="initialObjects">the initial objects</param>
         public DynamicObjectPool(List<T> initialObjects) : base(initialObjects)
         {
+            InitializeEviction();
         }
 
         /// <summary>
@@ -38,6 +50,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public DynamicObjectPool(Func<T> factory) : base([])
         {
             this._factory = factory;
+            InitializeEviction();
         }
 
         /// <summary>
@@ -48,6 +61,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public DynamicObjectPool(Func<T> factory, List<T> initialObjects) : base(initialObjects)
         {
             this._factory = factory;
+            InitializeEviction();
         }
 
         /// <summary>
@@ -68,6 +82,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public DynamicObjectPool(Func<T> factory,List<T> initialObjects, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null): base(initialObjects, configuration, logger)
         {
             this._factory = factory;
+            InitializeEviction();
         }
 
         /// <summary>
@@ -83,8 +98,70 @@ namespace EsoxSolutions.ObjectPool.Pools
         public DynamicObjectPool(Func<T> factory, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null) : base([], configuration, logger)
         {
             this._factory = factory;
+            InitializeEviction();
         }
-        
+
+        private void InitializeEviction()
+        {
+            if (Configuration.EvictionConfiguration != null && 
+                Configuration.EvictionConfiguration.Policy != EvictionPolicy.None)
+            {
+                _evictionManager = new EvictionManager<T>(Configuration.EvictionConfiguration, Logger);
+
+                // Track initial objects
+                foreach (var obj in AvailableObjects)
+                {
+                    _evictionManager.TrackObject(obj);
+                }
+
+                // Set up periodic eviction checks
+                if (Configuration.EvictionConfiguration.EnableBackgroundEviction)
+                {
+                    _evictionCheckTimer = new Timer(
+                        PerformEvictionCheck,
+                        null,
+                        Configuration.EvictionConfiguration.EvictionInterval,
+                        Configuration.EvictionConfiguration.EvictionInterval);
+
+                    Logger?.LogInformation(
+                        "Eviction enabled with policy: {Policy}, TTL: {TTL}, Idle: {Idle}",
+                        Configuration.EvictionConfiguration.Policy,
+                        Configuration.EvictionConfiguration.TimeToLive,
+                        Configuration.EvictionConfiguration.IdleTimeout);
+                }
+            }
+        }
+
+        private void PerformEvictionCheck(object? state)
+        {
+            if (_evictionManager == null || Disposed) return;
+
+            try
+            {
+                var objectsToCheck = AvailableObjects.ToArray();
+                _evictionManager.RunEviction(objectsToCheck, obj =>
+                {
+                    // Remove from available stack
+                    if (AvailableObjects.TryPop(out var removed) && EqualityComparer<T>.Default.Equals(removed, obj))
+                    {
+                        Logger?.LogDebug("Evicted object from pool");
+                    }
+                    else
+                    {
+                        // Put it back if it wasn't the one we wanted to remove
+                        if (removed != null)
+                        {
+                            AvailableObjects.Push(removed);
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogError(ex, "Error during eviction check");
+            }
+        }
+
         /// <summary>
         /// Returns an object from the pool. If no objects are available, an exception is thrown.
         /// </summary>
@@ -103,9 +180,47 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             // Try to get an existing object first
-            if (this.AvailableObjects.TryPop(out var result))
+            T? result = default;
+            bool found = false;
+
+            // Keep trying until we find a non-expired object or run out
+            while (this.AvailableObjects.TryPop(out result))
+            {
+                // Check if object should be evicted
+                if (_evictionManager != null && _evictionManager.ShouldEvict(result))
+                {
+                    Logger?.LogDebug("Object expired, attempting to evict");
+                    
+                    // Evict this object
+                    _evictionManager.UntrackObject(result);
+                    
+                    if (Configuration.EvictionConfiguration?.DisposeEvictedObjects == true && 
+                        result is IDisposable disposable)
+                    {
+                        try
+                        {
+                            disposable.Dispose();
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger?.LogError(ex, "Error disposing evicted object");
+                        }
+                    }
+                    
+                    // Try next object
+                    continue;
+                }
+
+                // Found a valid object
+                found = true;
+                break;
+            }
+
+            if (found && result != null)
             {
                 this.ActiveObjects.TryAdd(result, 0);
+                _evictionManager?.RecordAccess(result);
+                
                 statistics.TotalObjectsRetrieved++;
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                 statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
@@ -142,6 +257,10 @@ namespace EsoxSolutions.ObjectPool.Pools
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
 
+            // Track the new object for eviction
+            _evictionManager?.TrackObject(newObject);
+            _evictionManager?.RecordAccess(newObject);
+
             // Add directly to active objects without pushing to available first
             this.ActiveObjects.TryAdd(newObject, 0);
             statistics.TotalObjectsRetrieved++;
@@ -156,6 +275,36 @@ namespace EsoxSolutions.ObjectPool.Pools
                 ActiveObjects.Count, AvailableObjects.Count);
             
             return new PoolModel<T>(newObject, this);
+        }
+
+        /// <summary>
+        /// Returns an object to the pool
+        /// </summary>
+        public new void ReturnObject(PoolModel<T> obj)
+        {
+            var unwrapped = obj.Unwrap();
+            
+            // Record return for eviction tracking
+            _evictionManager?.RecordReturn(unwrapped);
+            
+            // Call base implementation
+            base.ReturnObject(obj);
+        }
+
+        /// <summary>
+        /// Gets eviction statistics
+        /// </summary>
+        public EvictionStatistics? GetEvictionStatistics()
+        {
+            return _evictionManager?.GetStatistics();
+        }
+
+        /// <summary>
+        /// Manually triggers an eviction check
+        /// </summary>
+        public void TriggerEviction()
+        {
+            PerformEvictionCheck(null);
         }
 
         #region IObjectPoolWarmer Implementation
@@ -219,9 +368,10 @@ namespace EsoxSolutions.ObjectPool.Pools
                     {
                         var results = await Task.WhenAll(tasks);
                         
-                        foreach (var obj in results.Where(o => o != null))
+                        foreach (var newObj in results.Where(o => o != null))
                         {
-                            AvailableObjects.Push(obj!);
+                            AvailableObjects.Push(newObj!);
+                            _evictionManager?.TrackObject(newObj!);
                             _warmupStatus.ObjectsCreated++;
                         }
 
@@ -273,5 +423,19 @@ namespace EsoxSolutions.ObjectPool.Pools
         }
 
         #endregion
+
+        /// <summary>
+        /// Disposes the pool and releases resources
+        /// </summary>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && !Disposed)
+            {
+                _evictionCheckTimer?.Dispose();
+                _evictionManager?.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
     }
 }

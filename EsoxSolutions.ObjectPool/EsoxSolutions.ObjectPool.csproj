@@ -10,8 +10,8 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
     <PackageTags>objectpool;threadsafe;async;performance;metrics;healthchecks;dependencyinjection;opentelemetry;warmup;eviction;ttl;circuitbreaker;lifecycle;multitenancy;scopedpools</PackageTags>
-    <AssemblyVersion>4.0.1</AssemblyVersion>
-    <FileVersion>4.0.1</FileVersion>
+    <AssemblyVersion>4.0.2</AssemblyVersion>
+    <FileVersion>4.0.2</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Production-Ready Object Pool for .NET with Complete Observability</Title>
     <Authors>Iede Snoek</Authors>

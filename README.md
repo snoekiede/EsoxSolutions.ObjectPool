@@ -36,7 +36,6 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **Sealed classes**: Better performance optimization opportunities
 
 #### Technical Improvements
-- **Optimized bulk operations**: Uses `PushRange` for returning multiple objects efficiently
 - **Early exit optimization**: Query operations exit immediately when match found
 - **Reduced allocations**: Eliminated redundant snapshots and LINQ overhead
 - **Better statistics**: More accurate tracking under concurrent load

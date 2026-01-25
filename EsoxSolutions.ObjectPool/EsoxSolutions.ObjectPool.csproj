@@ -17,7 +17,7 @@
     <Authors>Iede Snoek</Authors>
     <PackageReleaseNotes>Version 4.0.0: Complete production-ready suite with dependency injection, health checks, OpenTelemetry metrics, pool warm-up, eviction/TTL, circuit breaker pattern, lifecycle hooks, and scoped pools for multi-tenancy. 186 tests passing with 100% success rate. Enterprise-ready with comprehensive monitoring and observability.</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>4.0.1</Version>
+    <Version>4.0.2</Version>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>C:\temp\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>

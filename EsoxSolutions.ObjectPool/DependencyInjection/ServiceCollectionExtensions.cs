@@ -1,6 +1,7 @@
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
+using EsoxSolutions.ObjectPool.Warmup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -66,7 +67,7 @@ public static class ServiceCollectionExtensions
             ArgumentNullException.ThrowIfNull(services);
             ArgumentNullException.ThrowIfNull(factory);
 
-            services.TryAddSingleton<IObjectPool<T>>(sp =>
+            services.TryAddSingleton<DynamicObjectPool<T>>(sp =>
             {
                 var config = new PoolConfiguration();
                 configure?.Invoke(config);
@@ -78,6 +79,12 @@ public static class ServiceCollectionExtensions
 
                 return new DynamicObjectPool<T>(PoolFactory, [], config, logger);
             });
+
+            // Register as IObjectPool<T>
+            services.TryAddSingleton<IObjectPool<T>>(sp => sp.GetRequiredService<DynamicObjectPool<T>>());
+
+            // Register as IObjectPoolWarmer<T> for warm-up support
+            services.TryAddSingleton<IObjectPoolWarmer<T>>(sp => sp.GetRequiredService<DynamicObjectPool<T>>());
 
             return services;
         }

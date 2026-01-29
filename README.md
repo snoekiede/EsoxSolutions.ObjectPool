@@ -85,12 +85,12 @@ builder.Services.AddDynamicObjectPool<HttpClient>(
         config.MaxPoolSize = 100;
         config.MaxActiveObjects = 50;
     })
-    .WithAutoWarmup(50); // Pre-create 50 objects on startup
+    .WithAutoWarmup<HttpClient>(50); // Pre-create 50 objects on startup
 
 builder.Services.AddDynamicObjectPool<DbConnection>(
     sp => new SqlConnection(connectionString),
     config => config.MaxPoolSize = 50)
-    .WithAutoWarmupPercentage(75); // Pre-create 75% of capacity
+    .WithAutoWarmupPercentage<DbConnection>(75); // Pre-create 75% of capacity
 
 // Register health checks
 builder.Services.AddHealthChecks()
@@ -168,7 +168,7 @@ builder.Services.AddDynamicObjectPool<HttpClient>(
         config.MaxPoolSize = 100;
         config.MaxActiveObjects = 50;
     })
-    .WithAutoWarmup(50) // Pre-create 50 objects on startup
+    .WithAutoWarmup<HttpClient>(50) // Pre-create 50 objects on startup
     .WithEviction(
         timeToLive: TimeSpan.FromHours(1),      // Objects expire after 1 hour
         idleTimeout: TimeSpan.FromMinutes(10)); // or 10 minutes idle
@@ -176,7 +176,7 @@ builder.Services.AddDynamicObjectPool<HttpClient>(
 builder.Services.AddDynamicObjectPool<DbConnection>(
     sp => new SqlConnection(connectionString),
     config => config.MaxPoolSize = 50)
-    .WithAutoWarmupPercentage(75)
+    .WithAutoWarmupPercentage<DbConnection>(75)
     .WithIdleTimeout(TimeSpan.FromMinutes(5)); // Evict connections idle for 5 minutes
 
 // Register health checks

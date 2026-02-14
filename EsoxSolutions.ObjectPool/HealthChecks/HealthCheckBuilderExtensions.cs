@@ -96,7 +96,7 @@ public static class HealthCheckBuilderExtensions
 
             var healthCheckName = name ?? $"queryablepool_{typeof(T).Name.ToLowerInvariant()}";
             var effectiveFailureStatus = failureStatus ?? HealthStatus.Degraded;
-            var effectiveTags = tags ?? new[] { "ready", "objectpool", "queryable" };
+            var effectiveTags = tags ?? ["ready", "objectpool", "queryable"];
 
             return builder.Add(new HealthCheckRegistration(
                 healthCheckName,

@@ -12,7 +12,7 @@ namespace EsoxSolutions.ObjectPool.Pools
     /// A threadsafe generic object pool
     /// </summary>
     /// <typeparam name="T">The type of object to be stored in the object pool</typeparam>
-    public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable where T : notnull
+    public class ObjectPool<T> : IObjectPool<T>, IPoolHealth, IPoolMetrics, IDisposable, IAsyncDisposable where T : notnull
     {
         /// <summary>
         /// A concurrent stack of available objects for efficient O(1) operations
@@ -176,6 +176,78 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             // Validate object if configured
             if (Configuration is {ValidateOnReturn: true, ValidationFunction: not null})
+            {
+                if (!Configuration.ValidationFunction(unwrapped))
+                {
+                    Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
+                    this.ActiveObjects.TryRemove(unwrapped, out _);
+                    statistics.TotalObjectsReturned++;
+                    statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                    statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                    return;
+                }
+            }
+
+            // Check if we're exceeding pool size limit
+            if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
+            {
+                Logger?.LogDebug(PoolConstants.Messages.PoolAtMaxSize);
+                this.ActiveObjects.TryRemove(unwrapped, out _);
+                statistics.TotalObjectsReturned++;
+                statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+                return;
+            }
+
+            this.ActiveObjects.TryRemove(unwrapped, out _);
+            this.AvailableObjects.Push(unwrapped);
+
+            statistics.TotalObjectsReturned++;
+            statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+            statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+
+            Logger?.LogDebug(PoolConstants.Messages.ObjectReturnedToPoolActiveAvailable,
+                ActiveObjects.Count, AvailableObjects.Count);
+        }
+
+        /// <summary>
+        /// Asynchronously returns an object to the pool with async validation support
+        /// </summary>
+        /// <param name="obj">The object to be returned</param>
+        /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
+        public async ValueTask ReturnObjectAsync(PoolModel<T> obj)
+        {
+            if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
+
+            var unwrapped = obj.Unwrap();
+            if (!this.ActiveObjects.ContainsKey(unwrapped))
+            {
+                Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
+                throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
+            }
+
+            // Async validation takes precedence
+            if (Configuration is { ValidateOnReturn: true, AsyncValidationFunction: not null })
+            {
+                bool isValid = await Configuration.AsyncValidationFunction(unwrapped);
+                if (!isValid)
+                {
+                    Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
+                    this.ActiveObjects.TryRemove(unwrapped, out _);
+                    statistics.TotalObjectsReturned++;
+                    statistics.CurrentActiveObjects = this.ActiveObjects.Count;
+                    statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
+
+                    // Dispose invalid object if configured
+                    if (Configuration.UseAsyncDisposal)
+                    {
+                        await DisposeObjectAsync(unwrapped);
+                    }
+                    return;
+                }
+            }
+            // Fall back to sync validation if no async validation
+            else if (Configuration is { ValidateOnReturn: true, ValidationFunction: not null })
             {
                 if (!Configuration.ValidationFunction(unwrapped))
                 {
@@ -433,7 +505,60 @@ namespace EsoxSolutions.ObjectPool.Pools
 
         #endregion
 
-        #region IDisposable Implementation
+        #region IDisposable and IAsyncDisposable Implementation
+
+        /// <summary>
+        /// Asynchronously disposes the object pool and all pooled objects.
+        /// Prefers IAsyncDisposable over IDisposable when available.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (Disposed)
+                return;
+
+            Logger?.LogInformation("Asynchronously disposing ObjectPool with {Active} active objects and {Available} available objects",
+                ActiveObjects.Count, AvailableObjects.Count);
+
+            // Dispose available objects
+            foreach (var obj in AvailableObjects)
+            {
+                await DisposeObjectAsync(obj);
+            }
+
+            // Dispose active objects
+            foreach (var obj in ActiveObjects.Keys)
+            {
+                await DisposeObjectAsync(obj);
+            }
+
+            AvailableObjects.Clear();
+            ActiveObjects.Clear();
+
+            Disposed = true;
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Helper method to dispose an object, preferring async disposal if available
+        /// </summary>
+        protected virtual async ValueTask DisposeObjectAsync(T obj)
+        {
+            try
+            {
+                if (obj is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync();
+                }
+                else if (obj is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger?.LogWarning(ex, "Error disposing object of type {Type}", typeof(T).Name);
+            }
+        }
 
         /// <summary>
         /// Dispose the pool and clean up resources

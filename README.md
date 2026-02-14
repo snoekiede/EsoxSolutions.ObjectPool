@@ -4,9 +4,17 @@
 
 EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
-## What's New in Version 4.0.0
+## What's New in Version 4.1.0
 
-### Complete Production-Ready Suite
+### New Features in 4.1.0
+- **Pooling Policies** - Choose retrieval strategies (LIFO, FIFO, Priority, LRU, Round-Robin)
+- **IAsyncDisposable Support** - Proper async cleanup for modern .NET resources
+- **Async Validation** - Validate objects asynchronously on return to pool
+- **Enhanced AOT Support** - Native AOT and trimming compatibility
+- **Package Validation** - NuGet package validation enabled
+- **SourceLink** - Step-through debugging support
+
+### Complete Production-Ready Suite (4.0.0)
 - **First-class ASP.NET Core support** with fluent configuration API
 - **ASP.NET Core Health Checks integration** for production monitoring
 - **OpenTelemetry metrics** with native `System.Diagnostics.Metrics` support
@@ -46,11 +54,14 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **Production ready**: Comprehensive validation across .NET 8, 9, and 10
 
 ## Features
-    
+
+- **Pooling Policies** - LIFO, FIFO, Priority, LRU, Round-Robin retrieval strategies
+- **IAsyncDisposable** - Proper async cleanup for database connections, gRPC channels, etc.
+- **Async Validation** - Asynchronously validate objects on return (health checks, ping tests)
 - **Dependency Injection** - First-class ASP.NET Core and Generic Host support
 - **Health Checks** - ASP.NET Core Health Checks integration for monitoring
 - **OpenTelemetry Metrics** - Native observability with System.Diagnostics.Metrics API
-- **Pool Warm-up** - Pre-population strategy to eliminate cold-start latency
+- **Pool Warm-up** - Pre-population for zero cold-start latency
 - **Eviction / TTL** - Automatic removal of stale objects based on time-to-live or idle timeout
 - **Circuit Breaker** - Protect against cascading failures with automatic recovery
 - **Lifecycle Hooks** - Execute custom logic at object creation, acquisition, return, and disposal
@@ -65,8 +76,69 @@ EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET
 - **Pool configuration** for max size, active objects, validation, and timeouts
 - **Try* methods** for non-throwing retrieval patterns
 - **High-performance** with O(1) get/return operations
+- **AOT Compatible** - Native AOT and trimming support
 
 ## Quick Start
+
+### With Pooling Policies & Async Disposal (New in 4.1.0!)
+
+```csharp
+using EsoxSolutions.ObjectPool.DependencyInjection;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Database connection pool with FIFO policy and async validation
+builder.Services.AddObjectPool<DatabaseConnection>(builder => builder
+    .WithFactory(() => new DatabaseConnection(connectionString))
+    .WithFifoPolicy()  // Fair distribution, prevents connection aging
+    .WithAsyncValidation(async conn =>
+    {
+        // Verify connection is still alive
+        if (conn.State != ConnectionState.Open)
+            await conn.OpenAsync();
+
+        await conn.ExecuteAsync("SELECT 1"); // Ping test
+        return true;
+    })
+    .WithAsyncDisposal(true)  // Proper async cleanup
+    .WithMaxSize(50));
+
+// HTTP client pool with Round-Robin policy
+builder.Services.AddObjectPool<HttpClient>(builder => builder
+    .WithFactory(() => new HttpClient())
+    .WithRoundRobinPolicy()  // Load balancing
+    .WithMaxSize(100));
+
+// Multi-tenant pool with Priority policy
+builder.Services.AddObjectPool<TenantConnection>(builder => builder
+    .WithFactory(() => new TenantConnection())
+    .WithPriorityPolicy(conn => conn.TenantTier switch
+    {
+        TenantTier.Premium => 10,
+        TenantTier.Standard => 5,
+        TenantTier.Free => 1,
+        _ => 0
+    })
+    .WithMaxSize(100));
+
+var app = builder.Build();
+app.Run();
+```
+
+**New Pooling Policies:**
+- **LIFO** (default): Best performance, cache locality
+- **FIFO**: Fair scheduling, prevents aging
+- **Priority**: QoS, multi-tenant prioritization
+- **LRU**: Prevents staleness, keep-alive
+- **Round-Robin**: Load balancing, even distribution
+
+**IAsyncDisposable Support:**
+- Automatic async disposal of database connections
+- Proper cleanup for gRPC channels
+- Async validation for health checks
+- No blocking on I/O operations
+
+See [POOLING_POLICIES.md](docs/POOLING_POLICIES.md) and [ASYNC_OPERATIONS.md](docs/ASYNC_OPERATIONS.md) for details.
 
 ### With Dependency Injection, Health Checks, OpenTelemetry & Warm-up (Recommended)
 
@@ -216,12 +288,12 @@ app.Run();
 public class MyService
 {
     private readonly IObjectPool<HttpClient> _clientPool;
-    
+
     public MyService(IObjectPool<HttpClient> clientPool)
     {
         _clientPool = clientPool;
     }
-    
+
     public async Task DoWorkAsync()
     {
         using var pooledClient = _clientPool.GetObject();
@@ -230,6 +302,117 @@ public class MyService
     }
 }
 ```
+
+## New in 4.1.0: Pooling Policies & Async Support
+
+### Pooling Policies
+
+Choose the right retrieval strategy for your use case:
+
+```csharp
+// LIFO (Default) - Best performance, cache locality
+services.AddObjectPool<Resource>(b => b
+    .WithFactory(() => new Resource())
+    .WithLifoPolicy());  // or omit - LIFO is default
+
+// FIFO - Fair scheduling, prevents object aging
+services.AddObjectPool<Connection>(b => b
+    .WithFactory(() => new Connection())
+    .WithFifoPolicy());
+
+// Priority - Multi-tenant QoS
+services.AddObjectPool<TenantResource>(b => b
+    .WithFactory(() => new TenantResource())
+    .WithPriorityPolicy(r => r.Priority));
+
+// LRU - Prevents staleness, keep-alive
+services.AddObjectPool<GrpcChannel>(b => b
+    .WithFactory(() => CreateChannel())
+    .WithLeastRecentlyUsedPolicy());
+
+// Round-Robin - Load balancing
+services.AddObjectPool<ServiceClient>(b => b
+    .WithFactory(() => new ServiceClient())
+    .WithRoundRobinPolicy());
+```
+
+**When to use each policy:**
+- **LIFO**: General purpose, maximum performance
+- **FIFO**: Database connections (prevent idle timeouts)
+- **Priority**: Multi-tenant apps with SLA tiers
+- **LRU**: Long-lived connections needing keep-alive
+- **Round-Robin**: Multiple endpoints, load balancing
+
+### IAsyncDisposable Support
+
+Proper async cleanup for modern .NET resources:
+
+```csharp
+// Define async-disposable resource
+public class DatabaseConnection : IAsyncDisposable
+{
+    private SqlConnection _connection;
+
+    public async ValueTask DisposeAsync()
+    {
+        await _connection.CloseAsync();
+        await _connection.DisposeAsync();
+    }
+}
+
+// Pool with async disposal
+services.AddObjectPool<DatabaseConnection>(b => b
+    .WithFactory(() => new DatabaseConnection(connString))
+    .WithAsyncDisposal(true)  // enabled by default
+    .WithMaxSize(50));
+
+// Async cleanup on disposal
+await using var pool = serviceProvider.GetRequiredService<IObjectPool<DatabaseConnection>>();
+// All connections disposed asynchronously when pool is disposed
+```
+
+### Async Validation
+
+Validate objects asynchronously on return:
+
+```csharp
+services.AddObjectPool<HttpClient>(b => b
+    .WithFactory(() => new HttpClient())
+    .WithAsyncValidation(async client =>
+    {
+        try
+        {
+            // Verify connection is still alive
+            var response = await client.GetAsync("https://api.example.com/health");
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;  // Invalid - will be removed from pool
+        }
+    })
+    .WithMaxSize(50));
+
+// Use with async return
+var pooled = pool.GetObject();
+try
+{
+    await pooled.Unwrap().GetAsync("https://api.example.com/data");
+}
+finally
+{
+    await pool.ReturnObjectAsync(pooled);  // Async validation runs here
+}
+```
+
+**See [POOLING_POLICIES.md](docs/POOLING_POLICIES.md) and [ASYNC_OPERATIONS.md](docs/ASYNC_OPERATIONS.md) for comprehensive examples including:**
+- Policy comparison and use cases
+- Multi-tenant priority pooling
+- gRPC channel pooling with async disposal
+- Database connection health checks
+- Custom policy implementation
+- Performance characteristics
+- Best practices
 
 **See [DEPENDENCY_INJECTION.md](DEPENDENCY_INJECTION.md) for comprehensive examples including:**
 - ASP.NET Core Health Checks setup
@@ -381,7 +564,26 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Version History
 
-### 4.0.0 (Current) - December 2025
+### 4.1.0 (Current) - January 2025
+- **Pooling Policies**: LIFO, FIFO, Priority, LRU, Round-Robin retrieval strategies
+  - Fluent API: `.WithFifoPolicy()`, `.WithPriorityPolicy()`, etc.
+  - 5 built-in policies, custom policy support via `IPoolingPolicy<T>`
+  - 28 new tests for policy implementations
+- **IAsyncDisposable Support**: Proper async cleanup for modern resources
+  - `ObjectPool<T>` and `QueryableObjectPool<T>` implement `IAsyncDisposable`
+  - Automatic async disposal of pooled objects
+  - Smart fallback to sync disposal when needed
+  - 44 new tests for async operations
+- **Async Validation**: Validate objects asynchronously on return
+  - `.WithAsyncValidation()` for health checks, ping tests
+  - `ReturnObjectAsync()` method added to `IObjectPool<T>`
+  - Perfect for database connections, HTTP clients, gRPC channels
+- **Enhanced AOT Support**: Native AOT and trimming compatibility
+- **Package Quality**: SourceLink, package validation, code analyzers
+- **230+ tests passing** (100% success rate)
+  - Original 186 tests + 44 async tests + 28 policy tests
+
+### 4.0.0 - December 2024
 - **Complete Production-Ready Suite**: All enterprise features integrated and tested
 - **Dependency Injection**: First-class ASP.NET Core and Generic Host support
 - **Health Checks**: ASP.NET Core Health Checks integration with custom thresholds
@@ -448,6 +650,8 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Documentation
 
+- **[Pooling Policies Guide](docs/POOLING_POLICIES.md)** - NEW! LIFO, FIFO, Priority, LRU, Round-Robin strategies
+- **[Async Operations Guide](docs/ASYNC_OPERATIONS.md)** - NEW! IAsyncDisposable and async validation
 - **[Dependency Injection & Health Checks Guide](DEPENDENCY_INJECTION.md)** - Complete DI and health check integration guide
 - **[Deployment Guide](DEPLOYMENT.md)** - Production deployment best practices
 - **[Warm-up Implementation](WARMUP_IMPLEMENTATION.md)** - Pool warm-up strategies and examples

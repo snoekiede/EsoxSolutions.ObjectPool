@@ -1,5 +1,6 @@
 using EsoxSolutions.ObjectPool.CircuitBreaker;
 using EsoxSolutions.ObjectPool.Eviction;
+using EsoxSolutions.ObjectPool.Policies;
 
 namespace EsoxSolutions.ObjectPool.Models
 {
@@ -57,5 +58,30 @@ namespace EsoxSolutions.ObjectPool.Models
         /// Whether to continue pool operations if lifecycle hooks throw exceptions
         /// </summary>
         public bool ContinueOnLifecycleHookError { get; set; } = true;
+
+        /// <summary>
+        /// The pooling policy type to use (default: LIFO for best performance).
+        /// This is used by PolicyBasedObjectPool and DynamicObjectPool with policies.
+        /// </summary>
+        public PoolingPolicyType PoolingPolicyType { get; set; } = PoolingPolicyType.Lifo;
+
+        /// <summary>
+        /// Priority selector function for Priority pooling policy.
+        /// Required when PoolingPolicyType is set to Priority.
+        /// Must be of type Func&lt;T, int&gt; where T is the pooled object type.
+        /// </summary>
+        public object? PrioritySelector { get; set; }
+
+        /// <summary>
+        /// Optional async validation function for returned objects.
+        /// If both ValidationFunction and AsyncValidationFunction are set, AsyncValidationFunction takes precedence.
+        /// </summary>
+        public Func<object, ValueTask<bool>>? AsyncValidationFunction { get; set; }
+
+        /// <summary>
+        /// Whether to use async disposal when disposing pooled objects (default: true).
+        /// When true, objects implementing IAsyncDisposable will be disposed asynchronously.
+        /// </summary>
+        public bool UseAsyncDisposal { get; set; } = true;
     }
 }

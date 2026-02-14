@@ -62,7 +62,10 @@ public class CircuitBreaker : IDisposable
                 _statistics.RejectedOperations++;
             }
 
-            throw new CircuitBreakerOpenException(_statistics);
+            lock (_stateLock)
+            {
+                throw new CircuitBreakerOpenException(_statistics);
+            }
         }
 
         try

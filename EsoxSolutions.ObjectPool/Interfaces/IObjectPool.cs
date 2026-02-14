@@ -33,6 +33,12 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         void ReturnObject(PoolModel<T> obj);
 
         /// <summary>
+        /// Asynchronously return an object to the pool with async validation support
+        /// </summary>
+        /// <param name="obj">The object to be returned</param>
+        ValueTask ReturnObjectAsync(PoolModel<T> obj);
+
+        /// <summary>
         /// Asynchronously get an object from the pool
         /// </summary>
         /// <param name="timeout">Maximum time to wait for an object</param>

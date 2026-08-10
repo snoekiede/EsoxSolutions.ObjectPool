@@ -76,7 +76,7 @@ public class ObjectPoolHealthCheck<T> : IHealthCheck where T : class
                 "Pool is healthy",
                 data));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             return Task.FromResult(HealthCheckResult.Unhealthy(
                 "Error checking pool health",

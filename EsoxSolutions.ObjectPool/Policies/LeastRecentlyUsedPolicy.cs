@@ -37,12 +37,22 @@ namespace EsoxSolutions.ObjectPool.Policies
                     return false;
                 }
 
-                // Find the least recently used item
-                var lruItem = _lastUsedTimes.OrderBy(kvp => kvp.Value).First();
-                
-                if (_lastUsedTimes.TryRemove(lruItem.Key, out _))
+                // Find the least recently used item with a single O(n) pass — no allocations,
+                // no intermediate collection, and no LINQ overhead under the lock.
+                T? lruKey = default;
+                DateTimeOffset lruTime = DateTimeOffset.MaxValue;
+                foreach (var kvp in _lastUsedTimes)
                 {
-                    item = lruItem.Key;
+                    if (kvp.Value < lruTime)
+                    {
+                        lruTime = kvp.Value;
+                        lruKey = kvp.Key;
+                    }
+                }
+
+                if (lruKey is not null && _lastUsedTimes.TryRemove(lruKey, out _))
+                {
+                    item = lruKey;
                     return true;
                 }
 

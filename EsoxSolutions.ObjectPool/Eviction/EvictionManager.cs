@@ -15,7 +15,7 @@ public class EvictionManager<T> : IDisposable where T : notnull
     private readonly ILogger? _logger;
     private readonly Timer? _evictionTimer;
     private readonly EvictionStatistics _statistics = new();
-    private bool _disposed;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a new eviction manager
@@ -183,7 +183,7 @@ public class EvictionManager<T> : IDisposable where T : notnull
                     {
                         disposable.Dispose();
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OutOfMemoryException)
                     {
                         _logger?.LogError(ex, "Error disposing evicted object");
                     }

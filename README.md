@@ -4,6 +4,36 @@
 
 EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
+## What's New in Version 4.2.0 — Production Hardening
+
+This release focuses exclusively on correctness, thread-safety, and reliability. No new public API surface is introduced; all changes are internal quality improvements.
+
+### Thread-Safety & Atomicity
+- **Atomic statistics counters** — `PoolStatistics` properties are now backed by private `long`/`int` fields updated via `Interlocked.Increment`, `Interlocked.Read`, and a CAS loop for peak tracking. Raw `++` mutations are gone entirely.
+- **Volatile `Disposed` flags** — `Disposed` in `ObjectPool<T>`, `QueryableObjectPool<T>`, `DynamicObjectPool<T>`, `CircuitBreaker`, and `EvictionManager` are now `volatile`, guaranteeing cross-thread visibility without a full lock.
+- **Atomic `PoolModel<T>.Dispose`** — Uses a two-field guard (`_returnGuard` via `Interlocked.CompareExchange`, `_disposed` via `Volatile.Write` after return) so exactly one thread ever calls `ReturnObject`, and `Unwrap()` only raises `ObjectDisposedException` after the return completes.
+- **TOCTOU eliminated** — All `ContainsKey(key)` + `TryRemove(key)` patterns replaced with a direct `TryRemove` call. Objects can no longer disappear between the existence check and the removal.
+
+### Async Improvements
+- **Signal-driven `GetObjectAsync`** — Replaced `Task.Delay` busy-wait polling with `SemaphoreSlim.WaitAsync`. Callers are woken immediately when an object is returned rather than on a fixed interval. The semaphore is released on every successful `ReturnObject`/`ReturnObjectAsync`.
+- **`ConfigureAwait(false)` throughout** — All `await` expressions in library code now carry `ConfigureAwait(false)`, eliminating unnecessary sync-context captures and potential deadlocks in ASP.NET Classic or Blazor Server hosts.
+- **Correct cancellation exception type** — `SemaphoreSlim.WaitAsync` emits `TaskCanceledException`; the library now re-throws via `ThrowIfCancellationRequested()` to honour the `OperationCanceledException` contract expected by callers.
+
+### Bug Fixes
+- **`DynamicObjectPool.ReturnObject` validation bypass** — The `if (!valid)` guard block was accidentally dropped during refactoring, causing invalid objects to be unconditionally returned to the pool. Restored, including the `ExecuteOnValidationFailed` lifecycle hook call.
+- **`DynamicObjectPool.DisposeAsync` missing timer disposal** — `DisposeAsync` did not dispose the eviction timer, circuit breaker, or eviction manager. An `override DisposeAsync` now disposes these before calling `base.DisposeAsync()`.
+- **`SemaphoreSlim` leaks** — The availability signal semaphore is now disposed in both the synchronous `Dispose(bool)` and the `DisposeAsync` paths for all pool types.
+
+### Exception Safety
+- **`OutOfMemoryException` propagation** — Every `catch (Exception ex)` block that previously swallowed all exceptions now carries a `when (ex is not OutOfMemoryException)` filter (19 sites across 9 files). `OutOfMemoryException` now escapes instead of being silently logged, returned as `false`, or wrapped in a custom exception type.
+- **Validation exception containment** — Exceptions thrown by user-supplied `ValidationFunction` and `AsyncValidationFunction` delegates are caught (excluding OOM), the object is discarded, and a warning is logged — preventing active-object leaks when a delegate misbehaves.
+
+### Performance
+- **LRU policy O(n log n) → O(n)** — `LeastRecentlyUsedPolicy<T>.TryTake` replaced `OrderBy().First()` (LINQ, allocations, O(n log n)) with a single `foreach` pass tracking the minimum timestamp — zero allocations, half the work, all under the existing lock.
+
+### Quality
+- **235 tests, 235 passing** — Full test suite green across .NET 8, 9, and 10.
+
 ## What's New in Version 4.1.0
 
 ### New Features in 4.1.0

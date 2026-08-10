@@ -203,7 +203,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
                         {
                             disposable.Dispose();
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
                         {
                             _logger?.LogError(ex, "Error disposing pool for scope: {Scope}", scope);
                         }
@@ -224,7 +224,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
                 _logger?.LogInformation("Cleaned up {Count} inactive scopes", scopesToRemove.Count);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _logger?.LogError(ex, "Error during scope cleanup");
         }
@@ -343,7 +343,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
                 {
                     disposable.Dispose();
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
                     _logger?.LogError(ex, "Error disposing pool for scope: {Scope}", kvp.Key);
                 }

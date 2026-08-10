@@ -376,7 +376,7 @@ public class LifecycleHookManager<T> where T : notnull
             var duration = DateTime.UtcNow - startTime;
             UpdateExecutionTime(duration);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _statistics.ErrorCount++;
             _statistics.LastError = ex;
@@ -394,12 +394,12 @@ public class LifecycleHookManager<T> where T : notnull
         var startTime = DateTime.UtcNow;
         try
         {
-            await action();
-            
+            await action().ConfigureAwait(false);
+
             var duration = DateTime.UtcNow - startTime;
             UpdateExecutionTime(duration);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _statistics.ErrorCount++;
             _statistics.LastError = ex;

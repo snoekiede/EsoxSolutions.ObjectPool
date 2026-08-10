@@ -10,7 +10,12 @@ namespace EsoxSolutions.ObjectPool.Models
     {
         private readonly T _value;
         private readonly IObjectPool<T> _pool;
-        private bool _disposed = false;
+        // Two separate flags so that the disposed-check in Unwrap() only fires
+        // after the object has been successfully returned to the pool.
+        // _returnGuard: 0 = not yet returned, 1 = return in progress/done (CAS gate)
+        // _disposed:    0 = usable, 1 = no longer usable (written after ReturnObject returns)
+        private int _returnGuard;
+        private int _disposed;
 
         /// <summary>
         /// Constructor for the pool model
@@ -33,19 +38,21 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="ObjectDisposedException">Thrown when trying to access a disposed object</exception>
         public T Unwrap()
         {
-            ObjectDisposedException.ThrowIf(_disposed, this);
+            ObjectDisposedException.ThrowIf(_disposed == 1, this);
             return this._value;
         }
 
         /// <summary>
-        /// Returns the poolmodel to the pool
+        /// Returns the poolmodel to the pool. Thread-safe: exactly one caller will perform the return.
         /// </summary>
         public void Dispose()
         {
-            if (!_disposed)
+            // Only the thread that flips _returnGuard from 0→1 performs the actual return.
+            // _disposed is set to 1 afterwards so that Unwrap() prevents further use.
+            if (Interlocked.CompareExchange(ref _returnGuard, 1, 0) == 0)
             {
-                this._pool.ReturnObject(this);
-                _disposed = true;
+                this._pool.ReturnObject(this); // Unwrap() is safe here: _disposed is still 0
+                Volatile.Write(ref _disposed, 1);
             }
         }
     }

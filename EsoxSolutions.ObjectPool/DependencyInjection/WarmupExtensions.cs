@@ -153,11 +153,11 @@ internal class PoolWarmupHostedService<T>(
 
             if (targetSize.HasValue)
             {
-                await warmer.WarmUpAsync(targetSize.Value, cancellationToken);
+                await warmer.WarmUpAsync(targetSize.Value, cancellationToken).ConfigureAwait(false);
             }
             else if (targetPercentage.HasValue)
             {
-                await warmer.WarmUpToPercentageAsync(targetPercentage.Value, cancellationToken);
+                await warmer.WarmUpToPercentageAsync(targetPercentage.Value, cancellationToken).ConfigureAwait(false);
             }
 
             var status = warmer.GetWarmupStatus();
@@ -167,7 +167,7 @@ internal class PoolWarmupHostedService<T>(
                 status.ObjectsCreated,
                 status.WarmupDuration.TotalMilliseconds);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             logger?.LogError(ex, "Error during pool warm-up for {PoolType}", typeof(T).Name);
         }

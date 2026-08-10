@@ -216,7 +216,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                     }
                 });
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 Logger?.LogError(ex, "Error during eviction check");
             }
@@ -278,7 +278,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                             _lifecycleHookManager?.ExecuteOnDispose(result);
                             disposable.Dispose();
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
                         {
                             Logger?.LogError(ex, "Error disposing evicted object");
                         }
@@ -301,13 +301,10 @@ namespace EsoxSolutions.ObjectPool.Pools
                 // Execute acquire hook
                 _lifecycleHookManager?.ExecuteOnAcquire(result);
                 
-                statistics.TotalObjectsRetrieved++;
+                statistics.IncrementRetrieved();
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                 statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-                if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-                {
-                    statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-                }
+                statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
                 return new PoolModel<T>(result, this);
             }
 
@@ -315,7 +312,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (this._factory == null)
             {
                 // No factory available to create new objects
-                statistics.PoolEmptyCount++;
+                statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.CannotCreateObject);
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
@@ -326,7 +323,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             {
                 newObject = this._factory.Invoke();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 Logger?.LogError(ex, PoolConstants.Messages.CannotCreateObject);
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject, ex);
@@ -349,13 +346,10 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             // Add directly to active objects without pushing to available first
             this.ActiveObjects.TryAdd(newObject, 0);
-            statistics.TotalObjectsRetrieved++;
+            statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-            {
-                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-            }
+            statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
             
             Logger?.LogDebug("Created new object dynamically. Active: {Active}, Available: {Available}", 
                 ActiveObjects.Count, AvailableObjects.Count);
@@ -371,8 +365,9 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<>));
 
             var unwrapped = obj.Unwrap();
-            
-            if (!this.ActiveObjects.ContainsKey(unwrapped))
+
+            // Use TryRemove directly to avoid ContainsKey + TryRemove TOCTOU race.
+            if (!this.ActiveObjects.TryRemove(unwrapped, out _))
             {
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
@@ -380,16 +375,23 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             // Execute return hook
             _lifecycleHookManager?.ExecuteOnReturn(unwrapped);
-            
+
             // Validate object if configured
             if (Configuration is {ValidateOnReturn: true, ValidationFunction: not null})
             {
-                if (!Configuration.ValidationFunction(unwrapped))
+                bool valid;
+                try { valid = Configuration.ValidationFunction(unwrapped); }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Logger?.LogError(ex, "Validation function threw; discarding object");
+                    valid = false;
+                }
+
+                if (!valid)
                 {
                     Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
                     _lifecycleHookManager?.ExecuteOnValidationFailed(unwrapped);
-                    this.ActiveObjects.TryRemove(unwrapped, out _);
-                    statistics.TotalObjectsReturned++;
+                    statistics.IncrementReturned();
                     statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                     statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                     return;
@@ -400,8 +402,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
             {
                 Logger?.LogDebug(PoolConstants.Messages.PoolAtMaxSize);
-                this.ActiveObjects.TryRemove(unwrapped, out _);
-                statistics.TotalObjectsReturned++;
+                statistics.IncrementReturned();
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                 statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                 return;
@@ -410,10 +411,10 @@ namespace EsoxSolutions.ObjectPool.Pools
             // Record return for eviction tracking
             _evictionManager?.RecordReturn(unwrapped);
 
-            this.ActiveObjects.TryRemove(unwrapped, out _);
             this.AvailableObjects.Push(unwrapped);
+            _availabilitySignal.Release();
 
-            statistics.TotalObjectsReturned++;
+            statistics.IncrementReturned();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
 
@@ -524,7 +525,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                             }
                             return _factory.Invoke();
                         }
-                        catch (Exception ex)
+                        catch (Exception ex) when (ex is not OutOfMemoryException)
                         {
                             Logger?.LogError(ex, "Error creating object during warm-up");
                             _warmupStatus.Errors.Add($"Factory error: {ex.Message}");
@@ -535,7 +536,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                     // Process in batches to avoid overwhelming the system
                     if (tasks.Count >= batchSize || i == objectsToCreate - 1)
                     {
-                        var results = await Task.WhenAll(tasks);
+                        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
                         
                         foreach (var newObj in results.Where(o => o != null))
                         {
@@ -611,6 +612,21 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
 
             base.Dispose(disposing);
+        }
+
+        /// <summary>
+        /// Asynchronously disposes the pool, including eviction timer and supporting services.
+        /// </summary>
+        public override async ValueTask DisposeAsync()
+        {
+            if (!Disposed)
+            {
+                _evictionCheckTimer?.Dispose();
+                _evictionManager?.Dispose();
+                _circuitBreaker?.Dispose();
+            }
+
+            await base.DisposeAsync().ConfigureAwait(false);
         }
     }
 }

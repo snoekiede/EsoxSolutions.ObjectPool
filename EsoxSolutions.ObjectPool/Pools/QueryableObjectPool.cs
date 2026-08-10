@@ -40,9 +40,14 @@ namespace EsoxSolutions.ObjectPool.Pools
         protected readonly ILogger? Logger;
         
         /// <summary>
-        /// Flag to track if the pool has been disposed
+        /// Signals waiting callers that an object has been returned to the pool.
         /// </summary>
-        protected bool Disposed;
+        private readonly SemaphoreSlim _availabilitySignal = new(0, int.MaxValue);
+
+        /// <summary>
+        /// Flag to track if the pool has been disposed. Volatile ensures cross-thread visibility.
+        /// </summary>
+        protected volatile bool Disposed;
 
         /// <summary>
         /// The constructor for the queryable object pool
@@ -114,24 +119,21 @@ namespace EsoxSolutions.ObjectPool.Pools
             
             if (!this.AvailableObjects.TryPop(out var result))
             {
-                statistics.PoolEmptyCount++;
+                statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.PoolEmpty);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.NoObjectsAvailable);
             }
-            
+
             this.ActiveObjects.TryAdd(result, 0);
-            
-            statistics.TotalObjectsRetrieved++;
+
+            statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-            {
-                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-            }
-            
+            statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
+
             Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedFromPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
-            
+
             return new PoolModel<T>(result, this);
         }
 
@@ -157,22 +159,19 @@ namespace EsoxSolutions.ObjectPool.Pools
             
             if (!this.AvailableObjects.TryPop(out var result))
             {
-                statistics.PoolEmptyCount++;
+                statistics.IncrementPoolEmpty();
                 Logger?.LogDebug(PoolConstants.Messages.NoAvailableObjects);
                 poolModel = null;
                 return false;
             }
 
             this.ActiveObjects.TryAdd(result, 0);
-            
-            statistics.TotalObjectsRetrieved++;
+
+            statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-            {
-                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-            }
-            
+            statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
+
             poolModel = new PoolModel<T>(result, this);
             Logger?.LogDebug(PoolConstants.Messages.ObjectRetrievedSuccessfullyActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
@@ -187,46 +186,54 @@ namespace EsoxSolutions.ObjectPool.Pools
         public void ReturnObject(PoolModel<T> obj)
         {
             if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
-            
+
             var unwrapped = obj.Unwrap();
-            if (!this.ActiveObjects.ContainsKey(unwrapped))
+
+            // Use TryRemove directly to avoid ContainsKey + TryRemove TOCTOU race.
+            if (!this.ActiveObjects.TryRemove(unwrapped, out _))
             {
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
             }
-            
+
             // Validate object if configured
             if (Configuration is {ValidateOnReturn: true, ValidationFunction: not null})
             {
-                if (!Configuration.ValidationFunction(unwrapped))
+                bool valid;
+                try { valid = Configuration.ValidationFunction(unwrapped); }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Logger?.LogError(ex, "Validation function threw; discarding object");
+                    valid = false;
+                }
+
+                if (!valid)
                 {
                     Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
-                    this.ActiveObjects.TryRemove(unwrapped, out _);
-                    statistics.TotalObjectsReturned++;
+                    statistics.IncrementReturned();
                     statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                     statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                     return;
                 }
             }
-            
+
             // Check if we're exceeding pool size limit
             if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
             {
                 Logger?.LogDebug(PoolConstants.Messages.PoolAtMaxSize);
-                this.ActiveObjects.TryRemove(unwrapped, out _);
-                statistics.TotalObjectsReturned++;
+                statistics.IncrementReturned();
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                 statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                 return;
             }
-            
-            this.ActiveObjects.TryRemove(unwrapped, out _);
+
             this.AvailableObjects.Push(unwrapped);
-            
-            statistics.TotalObjectsReturned++;
+            _availabilitySignal.Release();
+
+            statistics.IncrementReturned();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            
+
             Logger?.LogDebug(PoolConstants.Messages.ObjectReturnedToPoolActiveAvailable,
                 ActiveObjects.Count, AvailableObjects.Count);
         }
@@ -240,7 +247,9 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
 
             var unwrapped = obj.Unwrap();
-            if (!this.ActiveObjects.ContainsKey(unwrapped))
+
+            // Use TryRemove directly to avoid ContainsKey + TryRemove TOCTOU race.
+            if (!this.ActiveObjects.TryRemove(unwrapped, out _))
             {
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
@@ -249,12 +258,18 @@ namespace EsoxSolutions.ObjectPool.Pools
             // Async validation takes precedence
             if (Configuration is { ValidateOnReturn: true, AsyncValidationFunction: not null })
             {
-                bool isValid = await Configuration.AsyncValidationFunction(unwrapped);
+                bool isValid;
+                try { isValid = await Configuration.AsyncValidationFunction(unwrapped).ConfigureAwait(false); }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Logger?.LogError(ex, "Async validation function threw; discarding object");
+                    isValid = false;
+                }
+
                 if (!isValid)
                 {
                     Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
-                    this.ActiveObjects.TryRemove(unwrapped, out _);
-                    statistics.TotalObjectsReturned++;
+                    statistics.IncrementReturned();
                     statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                     statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                     return;
@@ -263,11 +278,18 @@ namespace EsoxSolutions.ObjectPool.Pools
             // Fall back to sync validation if no async validation
             else if (Configuration is { ValidateOnReturn: true, ValidationFunction: not null })
             {
-                if (!Configuration.ValidationFunction(unwrapped))
+                bool valid;
+                try { valid = Configuration.ValidationFunction(unwrapped); }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    Logger?.LogError(ex, "Validation function threw; discarding object");
+                    valid = false;
+                }
+
+                if (!valid)
                 {
                     Logger?.LogWarning(PoolConstants.Messages.ValidationFailed);
-                    this.ActiveObjects.TryRemove(unwrapped, out _);
-                    statistics.TotalObjectsReturned++;
+                    statistics.IncrementReturned();
                     statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                     statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                     return;
@@ -278,17 +300,16 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (this.AvailableObjects.Count >= Configuration.MaxPoolSize)
             {
                 Logger?.LogDebug(PoolConstants.Messages.PoolAtMaxSize);
-                this.ActiveObjects.TryRemove(unwrapped, out _);
-                statistics.TotalObjectsReturned++;
+                statistics.IncrementReturned();
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
                 statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
                 return;
             }
 
-            this.ActiveObjects.TryRemove(unwrapped, out _);
             this.AvailableObjects.Push(unwrapped);
+            _availabilitySignal.Release();
 
-            statistics.TotalObjectsReturned++;
+            statistics.IncrementReturned();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
 
@@ -322,7 +343,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             var matchingObject = availableObjects.FirstOrDefault(query);
             if (matchingObject == null || EqualityComparer<T>.Default.Equals(matchingObject, default))
             {
-                statistics.PoolEmptyCount++;
+                statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.NoObjectsInPoolMatchingYourQuery);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.NoObjectsInPoolMatchingYourQuery);
             }
@@ -359,25 +380,22 @@ namespace EsoxSolutions.ObjectPool.Pools
             if (!foundMatch)
             {
                 // No matching object was available (might have been taken by another thread)
-                statistics.PoolEmptyCount++;
+                statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.NoObjectsInPoolMatchingYourQuery);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.NoObjectsInPoolMatchingYourQuery);
             }
-            
+
             // Add to active objects and return
             this.ActiveObjects.TryAdd(foundObject, 0);
-            
-            statistics.TotalObjectsRetrieved++;
+
+            statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-            {
-                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-            }
-            
+            statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
+
             Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedFromPoolActiveAvailable, 
                 ActiveObjects.Count, AvailableObjects.Count);
-            
+
             return new PoolModel<T>(foundObject, this);
         }
 
@@ -439,18 +457,13 @@ namespace EsoxSolutions.ObjectPool.Pools
             
             // Add to active objects and return
             this.ActiveObjects.TryAdd(foundObject!, 0);
-            
-            // Update statistics (thread-safe increments)
-            statistics.TotalObjectsRetrieved++;
+
+            // Update statistics atomically
+            statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;
-            
-            // Update peak with simple comparison (good enough for statistics)
-            if (statistics.CurrentActiveObjects > statistics.PeakActiveObjects)
-            {
-                statistics.PeakActiveObjects = statistics.CurrentActiveObjects;
-            }
-            
+            statistics.UpdatePeakIfHigher(statistics.CurrentActiveObjects);
+
             poolModel = new PoolModel<T>(foundObject!, this);
             Logger?.LogDebug(PoolConstants.Messages.ObjectMatchingQueryRetrievedSuccessfullyActiveAvailable, 
                 ActiveObjects.Count, AvailableObjects.Count);
@@ -466,32 +479,54 @@ namespace EsoxSolutions.ObjectPool.Pools
         public async Task<PoolModel<T>> GetObjectAsync(TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
             if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
-            
+
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
-            var deadline = DateTime.UtcNow.Add(effectiveTimeout);
 
             Logger?.LogDebug(PoolConstants.Messages.StartingAsyncObjectRetrievalWithTimeout, effectiveTimeout);
 
-            while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
+            if (TryGetObject(out var poolModel))
             {
-                if (TryGetObject(out var poolModel))
+                Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalSuccess);
+                return poolModel!;
+            }
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(effectiveTimeout);
+
+            while (true)
+            {
+                bool signalled;
+                try
+                {
+                    signalled = await _availabilitySignal
+                        .WaitAsync(effectiveTimeout, timeoutCts.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalCancelled);
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                    Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout);
+                    throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
+                }
+
+                if (!signalled)
+                {
+                    Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout);
+                    throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (TryGetObject(out poolModel))
                 {
                     Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalSuccess);
                     return poolModel!;
                 }
-
-                // Wait a short time before trying again
-                await Task.Delay(PoolConstants.Thresholds.DefaultAsyncPollingDelayMs, cancellationToken);
             }
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalCancelled);
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout);
-            throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
         }
         
         /// <summary>
@@ -504,32 +539,56 @@ namespace EsoxSolutions.ObjectPool.Pools
         public async Task<PoolModel<T>> GetObjectAsync(Func<T, bool> query, TimeSpan timeout = default, CancellationToken cancellationToken = default)
         {
             if (Disposed) throw new ObjectDisposedException(nameof(QueryableObjectPool<>));
-            
+
             var effectiveTimeout = timeout == TimeSpan.Zero ? Configuration.DefaultTimeout : timeout;
-            var deadline = DateTime.UtcNow.Add(effectiveTimeout);
 
             Logger?.LogDebug(PoolConstants.Messages.StartingAsyncObjectRetrievalWithQueryAndTimeout, effectiveTimeout);
 
-            while (!cancellationToken.IsCancellationRequested && DateTime.UtcNow < deadline)
+            if (TryGetObject(query, out var poolModel))
             {
-                if (TryGetObject(query, out var poolModel))
+                Logger?.LogDebug(PoolConstants.Messages.SuccessfullyRetrievedObjectWithQueryAsynchronously);
+                return poolModel!;
+            }
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(effectiveTimeout);
+
+            while (true)
+            {
+                bool signalled;
+                try
+                {
+                    signalled = await _availabilitySignal
+                        .WaitAsync(effectiveTimeout, timeoutCts.Token)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalCancelled);
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                    Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingForObjectMatchingQueryFromPoolAfter, effectiveTimeout);
+                    throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
+                }
+
+                if (!signalled)
+                {
+                    Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingForObjectMatchingQueryFromPoolAfter, effectiveTimeout);
+                    throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (TryGetObject(query, out poolModel))
                 {
                     Logger?.LogDebug(PoolConstants.Messages.SuccessfullyRetrievedObjectWithQueryAsynchronously);
                     return poolModel!;
                 }
-
-                // Wait a short time before trying again
-                await Task.Delay(PoolConstants.Thresholds.DefaultAsyncPollingDelayMs, cancellationToken);
+                // A non-matching object was returned; put the signal back for the next waiter.
+                _availabilitySignal.Release();
             }
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                Logger?.LogDebug(PoolConstants.Messages.AsyncRetrievalCancelled);
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            Logger?.LogWarning(PoolConstants.Messages.TimeoutWaitingForObjectMatchingQueryFromPoolAfter, effectiveTimeout);
-            throw new TimeoutException(string.Format(PoolConstants.Messages.TimeoutWaitingFormat, effectiveTimeout));
         }
 
         #region IPoolHealth Implementation
@@ -663,12 +722,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public void ResetMetrics()
         {
             Logger?.LogInformation(PoolConstants.Messages.ResettingMetrics);
-            statistics = new PoolStatistics
-            {
-                CurrentActiveObjects = ActiveObjects.Count,
-                CurrentAvailableObjects = AvailableObjects.Count,
-                PeakActiveObjects = ActiveObjects.Count
-            };
+            statistics.Reset(ActiveObjects.Count, AvailableObjects.Count);
         }
 
         /// <summary>
@@ -753,6 +807,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 AvailableObjects.Clear();
                 ActiveObjects.Clear();
 
+                _availabilitySignal.Dispose();
                 Disposed = true;
             }
         }

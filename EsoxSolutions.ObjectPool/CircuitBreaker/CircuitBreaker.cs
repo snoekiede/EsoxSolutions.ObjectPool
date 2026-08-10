@@ -14,7 +14,7 @@ public class CircuitBreaker : IDisposable
     private readonly ConcurrentQueue<(DateTime Timestamp, bool Success)> _recentOperations = new();
     private readonly object _stateLock = new();
     private Timer? _recoveryTimer;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a new circuit breaker
@@ -94,7 +94,7 @@ public class CircuitBreaker : IDisposable
 
         try
         {
-            var result = await operation();
+            var result = await operation().ConfigureAwait(false);
             RecordSuccess();
             return result;
         }
@@ -124,7 +124,7 @@ public class CircuitBreaker : IDisposable
             RecordSuccess();
             return true;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             RecordFailure(ex);
             return false;

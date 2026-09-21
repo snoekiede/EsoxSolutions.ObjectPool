@@ -11,7 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
 
 ---
 
-## [4.2.0] — 2025-07-xx — Production Hardening
+## [4.2.0] — Production Hardening
 
 ### Fixed
 - **`DynamicObjectPool.ReturnObject` validation bypass** — the `if (!valid)` guard block
@@ -32,6 +32,14 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
   nine files (lifecycle hooks, circuit breaker, validation, eviction, warm-up, scoped
   pool cleanup) now carry `when (ex is not OutOfMemoryException)` guards so
   `OutOfMemoryException` always propagates to the caller.
+- **Active-capacity race** — atomic active-slot reservations now enforce
+  `MaxActiveObjects` across standard, queryable, and dynamic acquisition paths.
+- **Dynamic pool dispatch** — `ReturnObject` now uses virtual/override dispatch so
+  lifecycle behavior is preserved through `IObjectPool<T>`.
+- **Lifecycle callback rollback** — failed dynamic acquire/create callbacks release
+  capacity reservations and restore active-object tracking.
+- **Configuration validation** — invalid pool limits and default timeouts fail before
+  synchronization primitives are created.
 
 ### Changed
 - **`PoolStatistics` — atomic counters** — replaced non-atomic `++` / `--` increments
@@ -60,7 +68,7 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
   the minimum `LastAccessed` timestamp — zero extra allocations.
 
 ### Quality
-- 235 tests passing across .NET 8, 9, and 10 — no regressions introduced.
+- 242 tests passing across .NET 8, 9, and 10 — no regressions introduced.
 
 ---
 

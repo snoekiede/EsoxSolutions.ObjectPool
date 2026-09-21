@@ -83,5 +83,20 @@ namespace EsoxSolutions.ObjectPool.Models
         /// When true, objects implementing IAsyncDisposable will be disposed asynchronously.
         /// </summary>
         public bool UseAsyncDisposal { get; set; } = true;
+
+    /// <summary>
+    /// Validates configuration values before a pool is created.
+    /// </summary>
+    public void Validate()
+    {
+        if (MaxPoolSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(MaxPoolSize), "Max pool size must be greater than zero.");
+
+        if (MaxActiveObjects <= 0)
+            throw new ArgumentOutOfRangeException(nameof(MaxActiveObjects), "Max active objects must be greater than zero.");
+
+        if (DefaultTimeout <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(DefaultTimeout), "Default timeout must be greater than zero.");
+    }
     }
 }

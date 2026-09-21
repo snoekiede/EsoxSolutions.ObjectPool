@@ -70,7 +70,8 @@ namespace EsoxSolutions.ObjectPool.Policies
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            return _lastUsedTimes.Keys.ToArray();
+            // Return the current set of keys; Keys is already an IEnumerable<T>
+            return _lastUsedTimes.Keys;
         }
     }
 }

@@ -26,7 +26,10 @@ public class CircuitBreakerTests
             {
                 breaker.Execute<int>(() => throw new Exception("Test failure"));
             }
-            catch { }
+            catch
+            {
+                // ignored
+            }
         }
 
         // Assert
@@ -292,7 +295,7 @@ public class CircuitBreakerTests
         }
 
         // Circuit should be open, next call should fail immediately
-        Assert.Throws<CircuitBreakerOpenException>(() => pool.GetObject());
+        Assert.Throws<CircuitBreakerOpenException>(pool.GetObject);
 
         // Assert
         Assert.Equal(3, callCount); // Factory not called after circuit opens
@@ -350,7 +353,7 @@ public class CircuitBreakerTests
         Assert.NotNull(stats);
         Assert.Equal(CircuitState.Open, stats.State);
 
-        Assert.Throws<CircuitBreakerOpenException>(() => pool.GetObject());
+        Assert.Throws<CircuitBreakerOpenException>(pool.GetObject);
     }
 
     [Fact]
@@ -424,8 +427,8 @@ public class CircuitBreakerTests
         {
             FailureThreshold = 2,
             SuccessThreshold = 2,
-            OnCircuitOpen = stats => openCalled = true,
-            OnCircuitClose = stats => closeCalled = true
+            OnCircuitOpen = _ => openCalled = true,
+            OnCircuitClose = _ => closeCalled = true
         };
 
         var breaker = new EsoxSolutions.ObjectPool.CircuitBreaker.CircuitBreaker(config);

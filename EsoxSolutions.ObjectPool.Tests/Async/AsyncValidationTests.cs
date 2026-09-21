@@ -32,7 +32,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
                 }
             };
 
-            var pool = new ObjectPool<ValidatableResource>(new List<ValidatableResource> { resource }, config);
+            var pool = new ObjectPool<ValidatableResource>([resource], config);
             var pooled = pool.GetObject();
 
             // Act
@@ -59,7 +59,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
                 }
             };
 
-            var pool = new ObjectPool<ValidatableResource>(new List<ValidatableResource> { resource }, config);
+            var pool = new ObjectPool<ValidatableResource>([resource], config);
             var pooled = pool.GetObject();
 
             // Act
@@ -79,7 +79,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             var config = new PoolConfiguration
             {
                 ValidateOnReturn = true,
-                AsyncValidationFunction = async obj =>
+                AsyncValidationFunction = async _ =>
                 {
                     await Task.Delay(10);
                     validationCalled = true;
@@ -87,7 +87,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
                 }
             };
 
-            var pool = new ObjectPool<ValidatableResource>(new List<ValidatableResource> { resource }, config);
+            var pool = new ObjectPool<ValidatableResource>([resource], config);
             var pooled = pool.GetObject();
 
             // Act
@@ -144,7 +144,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
                     await Task.Delay(5);
                     
                     // Simulate checking if connection is still alive
-                    return resource.IsValid && resource.Id > 0;
+                    return resource is { IsValid: true, Id: > 0 };
                 })
                 .WithMaxSize(10));
 
@@ -172,12 +172,12 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             var config = new PoolConfiguration
             {
                 ValidateOnReturn = true,
-                ValidationFunction = obj =>
+                ValidationFunction = _ =>
                 {
                     syncCalled = true;
                     return true;
                 },
-                AsyncValidationFunction = async obj =>
+                AsyncValidationFunction = async _ =>
                 {
                     await Task.Delay(1);
                     asyncCalled = true;
@@ -186,7 +186,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             };
 
             var resource = new ValidatableResource();
-            var pool = new ObjectPool<ValidatableResource>(new List<ValidatableResource> { resource }, config);
+            var pool = new ObjectPool<ValidatableResource>([resource], config);
             var pooled = pool.GetObject();
 
             // Act
@@ -206,7 +206,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             var config = new PoolConfiguration
             {
                 ValidateOnReturn = true,
-                ValidationFunction = obj =>
+                ValidationFunction = _ =>
                 {
                     syncCalled = true;
                     return true;
@@ -214,7 +214,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             };
 
             var resource = new ValidatableResource();
-            var pool = new ObjectPool<ValidatableResource>(new List<ValidatableResource> { resource }, config);
+            var pool = new ObjectPool<ValidatableResource>([resource], config);
             var pooled = pool.GetObject();
 
             // Act

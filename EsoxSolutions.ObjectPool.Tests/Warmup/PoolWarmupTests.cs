@@ -229,7 +229,7 @@ public class PoolWarmupTests
         var services = new ServiceCollection();
         services.AddLogging();
         
-        services.AddSingleton<IObjectPoolWarmer<Car>>(sp =>
+        services.AddSingleton<IObjectPoolWarmer<Car>>(_ =>
             new DynamicObjectPool<Car>(() => new Car("Test", "Model")));
 
         services.WithAutoWarmup<Car>(10);
@@ -258,7 +258,7 @@ public class PoolWarmupTests
         services.AddLogging();
         
         var config = new PoolConfiguration { MaxPoolSize = 100 };
-        services.AddSingleton<IObjectPoolWarmer<Car>>(sp =>
+        services.AddSingleton<IObjectPoolWarmer<Car>>(_ =>
             new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config));
 
         services.WithAutoWarmupPercentage<Car>(50);
@@ -300,10 +300,10 @@ public class PoolWarmupTests
         var services = new ServiceCollection();
         services.AddLogging();
 
-        services.AddSingleton<IObjectPoolWarmer<Car>>(sp =>
+        services.AddSingleton<IObjectPoolWarmer<Car>>(_ =>
             new DynamicObjectPool<Car>(() => new Car("Test", "Model")));
 
-        services.AddSingleton<IObjectPoolWarmer<TestObject>>(sp =>
+        services.AddSingleton<IObjectPoolWarmer<TestObject>>(_ =>
             new DynamicObjectPool<TestObject>(() => new TestObject()));
 
         services.ConfigurePoolWarmup(warmup =>

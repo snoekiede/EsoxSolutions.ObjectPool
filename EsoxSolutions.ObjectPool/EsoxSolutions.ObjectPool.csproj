@@ -18,8 +18,8 @@
     <PackageReleaseNotes>Version 4.1.0: Added pooling policies (LIFO, FIFO, Priority, LRU, Round-Robin) for flexible retrieval strategies, IAsyncDisposable support for proper async cleanup, async validation for returned objects, enhanced AOT compatibility, and improved package quality with SourceLink and validation. 230+ tests passing with 100% success rate. Enterprise-ready with comprehensive monitoring and observability.</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Version>4.1.0</Version>
-    <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>C:\temp\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly Condition="'$(SignAssembly)' == ''">false</SignAssembly>
+    <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' and Exists('$(MSBuildProjectDirectory)\EsoxSolutions.ObjectPool.snk')">$(MSBuildProjectDirectory)\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <IncludeSymbols>True</IncludeSymbols>
 	  <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
@@ -31,6 +31,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Build.Tasks.Git" Version="10.0.111" />
   </ItemGroup>
 
   <ItemGroup>

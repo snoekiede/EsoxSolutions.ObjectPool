@@ -179,9 +179,24 @@ public class ScopedPoolConfiguration
     public ScopeResolutionStrategy ResolutionStrategy { get; set; } = ScopeResolutionStrategy.HttpContext;
 
     /// <summary>
-    /// Custom scope resolver function
+    /// Custom scope resolver function.
+    /// This delegate is invoked each time the ScopedPoolManager needs to resolve the current
+    /// <see cref="PoolScope"/>. Implementations may capture mutable state (for example a
+    /// local variable) or return <c>AmbientPoolScope.Current</c>. Returning <c>null</c> is allowed
+    /// and will be treated as an invalid resolution by the manager (an <see cref="InvalidOperationException"/>
+    /// will be thrown).
+    ///
+    /// Example:
+    /// <code>
+    /// PoolScope? currentScope = PoolScope.FromTenant("tenant1");
+    /// var config = new ScopedPoolConfiguration
+    /// {
+    ///     ResolutionStrategy = ScopeResolutionStrategy.Custom,
+    ///     CustomScopeResolver = () => currentScope
+    /// };
+    /// </code>
     /// </summary>
-    public Func<PoolScope>? CustomScopeResolver { get; set; }
+    public Func<PoolScope?>? CustomScopeResolver { get; set; }
 
     /// <summary>
     /// Maximum number of scopes to maintain simultaneously

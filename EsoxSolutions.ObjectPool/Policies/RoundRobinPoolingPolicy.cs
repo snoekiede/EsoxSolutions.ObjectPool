@@ -51,7 +51,8 @@ namespace EsoxSolutions.ObjectPool.Policies
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            return _queue.ToArray();
+            // Return a snapshot of the queue
+            return [.. _queue];
         }
     }
 }

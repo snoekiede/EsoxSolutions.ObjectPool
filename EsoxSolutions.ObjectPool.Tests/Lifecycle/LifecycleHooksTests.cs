@@ -45,7 +45,7 @@ public class LifecycleHooksTests
 
         var hooks = new LifecycleHooks<Car>
         {
-            OnAcquire = obj => { acquireCalled = true; acquireCount++; }
+            OnAcquire = _ => { acquireCalled = true; acquireCount++; }
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
@@ -53,8 +53,10 @@ public class LifecycleHooksTests
         var pool = new DynamicObjectPool<Car>(() => new Car("New", "Model"), initialCars, config);
 
         // Act
-        using (var obj1 = pool.GetObject()) { }
-        using (var obj2 = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
+        using (pool.GetObject())
+        { }
 
         // Assert
         Assert.True(acquireCalled);
@@ -98,7 +100,7 @@ public class LifecycleHooksTests
 
         var hooks = new LifecycleHooks<DisposableTestObject>
         {
-            OnDispose = obj => disposeCalled = true
+            OnDispose = _ => disposeCalled = true
         };
 
         var config = new PoolConfiguration
@@ -118,7 +120,8 @@ public class LifecycleHooksTests
             config);
 
         // Create and return object
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Wait for TTL
         Thread.Sleep(50);
@@ -139,7 +142,7 @@ public class LifecycleHooksTests
 
         var hooks = new LifecycleHooks<Car>
         {
-            OnEvict = (obj, reason) =>
+            OnEvict = (_, reason) =>
             {
                 evictCalled = true;
                 evictionReason = reason;
@@ -160,7 +163,8 @@ public class LifecycleHooksTests
         var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Create object
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Wait for TTL
         Thread.Sleep(50);
@@ -179,9 +183,9 @@ public class LifecycleHooksTests
         // Arrange
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreate = obj => { },
-            OnAcquire = obj => { },
-            OnReturn = obj => { }
+            OnCreate = _ => { },
+            OnAcquire = _ => { },
+            OnReturn = _ => { }
         };
 
         var manager = new LifecycleHookManager<Car>(hooks);
@@ -205,8 +209,8 @@ public class LifecycleHooksTests
         // Arrange
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreate = obj => throw new InvalidOperationException("Test error"),
-            OnAcquire = obj => { } // Should still execute
+            OnCreate = _ => throw new InvalidOperationException("Test error"),
+            OnAcquire = _ => { } // Should still execute
         };
 
         var manager = new LifecycleHookManager<Car>(hooks, continueOnError: true);
@@ -228,7 +232,7 @@ public class LifecycleHooksTests
         // Arrange
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreate = obj => throw new InvalidOperationException("Test error")
+            OnCreate = _ => throw new InvalidOperationException("Test error")
         };
 
         var manager = new LifecycleHookManager<Car>(hooks, continueOnError: false);
@@ -245,7 +249,7 @@ public class LifecycleHooksTests
         var createCalled = false;
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreateAsync = async obj =>
+            OnCreateAsync = async _ =>
             {
                 await Task.Delay(10);
                 createCalled = true;
@@ -268,15 +272,16 @@ public class LifecycleHooksTests
         // Arrange
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreate = obj => { },
-            OnAcquire = obj => { }
+            OnCreate = _ => { },
+            OnAcquire = _ => { }
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
         var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Assert
         var stats = pool.GetLifecycleHookStatistics();
@@ -293,15 +298,16 @@ public class LifecycleHooksTests
 
         var hooks = new LifecycleHooks<Car>
         {
-            OnCreate = obj => executionOrder.Add("Create"),
-            OnAcquire = obj => executionOrder.Add("Acquire")
+            OnCreate = _ => executionOrder.Add("Create"),
+            OnAcquire = _ => executionOrder.Add("Acquire")
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
         var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Act
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Assert
         Assert.Equal(2, executionOrder.Count);
@@ -316,7 +322,7 @@ public class LifecycleHooksTests
         var acquireCalled = false;
         var hooks = new LifecycleHooks<Car>
         {
-            OnAcquire = obj => acquireCalled = true
+            OnAcquire = _ => acquireCalled = true
         };
 
         var config = new PoolConfiguration { LifecycleHooks = hooks };
@@ -324,7 +330,8 @@ public class LifecycleHooksTests
         var pool = new DynamicObjectPool<Car>(() => new Car("New", "Car"), initialCars, config);
 
         // Act
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Assert
         Assert.True(acquireCalled);

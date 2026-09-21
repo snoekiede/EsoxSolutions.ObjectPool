@@ -40,7 +40,8 @@ namespace EsoxSolutions.ObjectPool.Policies
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            return _stack.ToArray();
+            // Return a snapshot of the stack
+            return [.. _stack];
         }
     }
 }

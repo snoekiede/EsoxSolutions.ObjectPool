@@ -51,8 +51,15 @@ namespace EsoxSolutions.ObjectPool.Models
             // _disposed is set to 1 afterwards so that Unwrap() prevents further use.
             if (Interlocked.CompareExchange(ref _returnGuard, 1, 0) == 0)
             {
-                this._pool.ReturnObject(this); // Unwrap() is safe here: _disposed is still 0
-                Volatile.Write(ref _disposed, 1);
+                try
+                {
+                    this._pool.ReturnObject(this); // Unwrap() is safe here: _disposed is still 0
+                }
+                finally
+                {
+                    // A failed return is terminal for this wrapper; retrying could duplicate ownership.
+                    Volatile.Write(ref _disposed, 1);
+                }
             }
         }
     }

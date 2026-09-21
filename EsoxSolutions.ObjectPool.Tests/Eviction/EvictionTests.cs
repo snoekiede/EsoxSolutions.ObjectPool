@@ -59,7 +59,7 @@ public class EvictionTests
         await pool.WarmUpAsync(3);
 
         // Get and return an object to mark it as accessed
-        using (var obj = pool.GetObject())
+        using (pool.GetObject())
         {
             // Object is now accessed
         }
@@ -145,7 +145,7 @@ public class EvictionTests
             EvictionConfiguration = new EvictionConfiguration
             {
                 Policy = EvictionPolicy.TimeToLive,
-                CustomEvictionPredicate = (obj, metadata) =>
+                CustomEvictionPredicate = (_, metadata) =>
                 {
                     callCount++;
                     return metadata.AccessCount > 2;
@@ -157,10 +157,14 @@ public class EvictionTests
         var pool = new DynamicObjectPool<Car>(() => new Car("Test", "Model"), config);
 
         // Add some objects and access them
-        using (var obj1 = pool.GetObject()) { }
-        using (var obj2 = pool.GetObject()) { }
-        using (var obj3 = pool.GetObject()) { }
-        using (var obj4 = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
+        using (pool.GetObject())
+        { }
+        using (pool.GetObject())
+        { }
+        using (pool.GetObject())
+        { }
 
         // Act
         pool.TriggerEviction();

@@ -22,7 +22,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             pool.Dispose();
             
             // Assert
-            Assert.Throws<ObjectDisposedException>(() => pool.GetObject());
+            Assert.Throws<ObjectDisposedException>(pool.GetObject);
             Assert.Throws<ObjectDisposedException>(() => pool.GetObject(c => c.Make == "Ford"));
             Assert.False(pool.TryGetObject(out _));
             Assert.False(pool.TryGetObject(c => c.Make == "Ford", out _));
@@ -232,7 +232,7 @@ namespace EsoxSolutions.ObjectPool.Tests
                 
             // Test query-based async with timeout (use fresh non-cancelled token)
             await Assert.ThrowsAsync<TimeoutException>(async () => 
-                await pool.GetObjectAsync(c => c.Make == "Ford", TimeSpan.FromMilliseconds(100)));
+                await pool.GetObjectAsync(c => c.Make == "Ford", TimeSpan.FromMilliseconds(100), CancellationToken.None));
                 
             // Test query-based async with cancellation (create new CancellationTokenSource)
             var cts2 = new CancellationTokenSource();
@@ -529,7 +529,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             stopwatch.Restart();
             
             // 2. Query by Make
-            using (var obj = pool.GetObject(c => c.Make == "Make1"))
+            using (pool.GetObject(c => c.Make == "Make1"))
             {
                 // Just get and return
             }
@@ -537,7 +537,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             stopwatch.Restart();
             
             // 3. Query by Make and Model (more selective)
-            using (var obj = pool.GetObject(c => c is { Make: "Make1", Model: "Model50" }))
+            using (pool.GetObject(c => c is { Make: "Make1", Model: "Model50" }))
             {
                 // Just get and return (might fail if no such car exists, that's ok)
             }

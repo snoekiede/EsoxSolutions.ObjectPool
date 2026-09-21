@@ -265,7 +265,7 @@ public class ObjectPoolHealthCheckTests
         var healthCheckService = provider.GetRequiredService<HealthCheckService>();
 
         // Perform some operations
-        using (var obj = pool.GetObject())
+        using (pool.GetObject())
         {
             // Use object
         }

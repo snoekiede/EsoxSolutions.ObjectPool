@@ -55,7 +55,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var obj2 = pool.GetObject();
             
             // Assert - Getting a third should throw
-            Assert.Throws<InvalidOperationException>(() => pool.GetObject());
+            Assert.Throws<InvalidOperationException>(pool.GetObject);
             
             // Clean up
             obj1.Dispose();

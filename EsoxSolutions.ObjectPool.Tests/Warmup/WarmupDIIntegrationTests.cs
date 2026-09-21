@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EsoxSolutions.ObjectPool.Tests.Warmup;
 
-public class WarmupDIIntegrationTests
+public class WarmupDiIntegrationTests
 {
     [Fact]
     public void AddDynamicObjectPool_RegistersIObjectPoolWarmer()
@@ -15,7 +15,7 @@ public class WarmupDIIntegrationTests
 
         // Act
         services.AddDynamicObjectPool<Car>(
-            sp => new Car("Test", "Model"),
+            _ => new Car("Test", "Model"),
             config => config.MaxPoolSize = 100);
 
         var provider = services.BuildServiceProvider();
@@ -32,7 +32,7 @@ public class WarmupDIIntegrationTests
         var services = new ServiceCollection();
 
         services.AddDynamicObjectPool<Car>(
-            sp => new Car("Test", "Model"),
+            _ => new Car("Test", "Model"),
             config => config.MaxPoolSize = 100)
             .WithAutoWarmup<Car>(10);
 
@@ -63,7 +63,7 @@ public class WarmupDIIntegrationTests
         var services = new ServiceCollection();
 
         services.AddDynamicObjectPool<Car>(
-            sp => new Car("Test", "Model"),
+            _ => new Car("Test", "Model"),
             config => config.MaxPoolSize = 100)
             .WithAutoWarmupPercentage<Car>(50);
 
@@ -94,7 +94,7 @@ public class WarmupDIIntegrationTests
         var services = new ServiceCollection();
 
         services.AddDynamicObjectPool<Car>(
-            sp => new Car("Test", "Model"),
+            _ => new Car("Test", "Model"),
             config => config.MaxPoolSize = 100);
 
         var provider = services.BuildServiceProvider();

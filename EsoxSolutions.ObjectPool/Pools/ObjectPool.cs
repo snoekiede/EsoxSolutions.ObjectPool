@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Metrics;
+using EsoxSolutions.ObjectPool.Infrastructure;
 
 namespace EsoxSolutions.ObjectPool.Pools
 {
@@ -23,6 +24,11 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// A concurrent dictionary of active objects for efficient O(1) lookups
         /// </summary>
         protected ConcurrentDictionary<T, byte> ActiveObjects;
+
+        /// <summary>
+        /// Atomically limits the number of active objects, including objects being created.
+        /// </summary>
+        protected readonly SemaphoreSlim ActiveObjectSlots;
 
         /// <summary>
         /// Pool statistics
@@ -67,7 +73,9 @@ namespace EsoxSolutions.ObjectPool.Pools
         {
             this.Configuration = configuration ?? new PoolConfiguration();
             this.Logger = logger;
-            this.ActiveObjects = new ConcurrentDictionary<T, byte>();
+            this.ActiveObjects = new ConcurrentDictionary<T, byte>(ReferenceOrValueEqualityComparer<T>.Instance);
+            this.ActiveObjectSlots = new SemaphoreSlim(this.Configuration.MaxActiveObjects, this.Configuration.MaxActiveObjects);
+            // Initialize the concurrent stack from the provided initial list
             this.AvailableObjects = new ConcurrentStack<T>(initialObjects);
 
             if (initialObjects.Count > this.Configuration.MaxPoolSize)
@@ -91,7 +99,7 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             Logger?.LogDebug(PoolConstants.Messages.AttemptingToGetObjectFromPoolAvailableCount, AvailableObjects.Count);
 
-            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
+            if (!this.ActiveObjectSlots.Wait(0))
             {
                 throw new InvalidOperationException(string.Format(PoolConstants.Messages.MaxActiveLimitFormat, 
                     Configuration.MaxActiveObjects));
@@ -99,11 +107,17 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             if (!this.AvailableObjects.TryPop(out var result))
             {
+                this.ActiveObjectSlots.Release();
                 statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.PoolEmpty);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.NoObjectsAvailable);
             }
-            this.ActiveObjects.TryAdd(result, 0);
+            if (!this.ActiveObjects.TryAdd(result, 0))
+            {
+                this.AvailableObjects.Push(result);
+                this.ActiveObjectSlots.Release();
+                throw new InvalidOperationException("The object could not be registered as active.");
+            }
 
             statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
@@ -129,7 +143,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 return false;
             }
 
-            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
+            if (!this.ActiveObjectSlots.Wait(0))
             {
                 Logger?.LogDebug(PoolConstants.Messages.CannotGetObjectActiveObjectsLimitMaxactiveReached, Configuration.MaxActiveObjects);
                 poolModel = null;
@@ -138,13 +152,20 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             if (!this.AvailableObjects.TryPop(out var result))
             {
+                this.ActiveObjectSlots.Release();
                 statistics.IncrementPoolEmpty();
                 Logger?.LogDebug(PoolConstants.Messages.NoAvailableObjects);
                 poolModel = null;
                 return false;
             }
 
-            this.ActiveObjects.TryAdd(result, 0);
+            if (!this.ActiveObjects.TryAdd(result, 0))
+            {
+                this.AvailableObjects.Push(result);
+                this.ActiveObjectSlots.Release();
+                poolModel = null;
+                return false;
+            }
 
             statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
@@ -234,6 +255,8 @@ namespace EsoxSolutions.ObjectPool.Pools
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
             }
+
+            this.ActiveObjectSlots.Release();
 
             // Async validation takes precedence
             if (Configuration is { ValidateOnReturn: true, AsyncValidationFunction: not null })
@@ -576,6 +599,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             ActiveObjects.Clear();
 
             _availabilitySignal.Dispose();
+            ActiveObjectSlots.Dispose();
             Disposed = true;
             GC.SuppressFinalize(this);
         }
@@ -641,6 +665,7 @@ namespace EsoxSolutions.ObjectPool.Pools
                 ActiveObjects.Clear();
 
                 _availabilitySignal.Dispose();
+                ActiveObjectSlots.Dispose();
                 Disposed = true;
             }
         }

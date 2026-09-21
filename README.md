@@ -32,7 +32,7 @@ This release focuses exclusively on correctness, thread-safety, and reliability.
 - **LRU policy O(n log n) → O(n)** — `LeastRecentlyUsedPolicy<T>.TryTake` replaced `OrderBy().First()` (LINQ, allocations, O(n log n)) with a single `foreach` pass tracking the minimum timestamp — zero allocations, half the work, all under the existing lock.
 
 ### Quality
-- **235 tests, 235 passing** — Full test suite green across .NET 8, 9, and 10.
+- **242 tests, 242 passing** — Full test suite green across .NET 8, 9, and 10.
 
 ## What's New in Version 4.1.0
 
@@ -626,7 +626,7 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Version History
 
-### 4.1.0 (Current) - January 2025
+### 4.2.0 (Current) - Production Hardening
 - **Pooling Policies**: LIFO, FIFO, Priority, LRU, Round-Robin retrieval strategies
   - Fluent API: `.WithFifoPolicy()`, `.WithPriorityPolicy()`, etc.
   - 5 built-in policies, custom policy support via `IPoolingPolicy<T>`

@@ -72,6 +72,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         public ObjectPool(List<T> initialObjects, PoolConfiguration? configuration, ILogger<ObjectPool<T>>? logger = null)
         {
             this.Configuration = configuration ?? new PoolConfiguration();
+            this.Configuration.Validate();
             this.Logger = logger;
             this.ActiveObjects = new ConcurrentDictionary<T, byte>(ReferenceOrValueEqualityComparer<T>.Instance);
             this.ActiveObjectSlots = new SemaphoreSlim(this.Configuration.MaxActiveObjects, this.Configuration.MaxActiveObjects);
@@ -183,7 +184,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// </summary>
         /// <param name="obj">The object to be returned</param>
         /// <exception cref="NoObjectsInPoolException">Raised if the object was not in the active objects list</exception>
-        public void ReturnObject(PoolModel<T> obj)
+        public virtual void ReturnObject(PoolModel<T> obj)
         {
             if (Disposed) throw new ObjectDisposedException(nameof(ObjectPool<>));
 

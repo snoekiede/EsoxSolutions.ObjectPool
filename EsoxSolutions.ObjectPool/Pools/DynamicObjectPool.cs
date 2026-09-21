@@ -303,8 +303,18 @@ namespace EsoxSolutions.ObjectPool.Pools
                 }
                 _evictionManager?.RecordAccess(result);
                 
-                // Execute acquire hook
-                _lifecycleHookManager?.ExecuteOnAcquire(result);
+                // Execute acquire hook; return the object and capacity reservation if user code fails.
+                try
+                {
+                    _lifecycleHookManager?.ExecuteOnAcquire(result);
+                }
+                catch
+                {
+                    this.ActiveObjects.TryRemove(result, out _);
+                    this.AvailableObjects.Push(result);
+                    this.ActiveObjectSlots.Release();
+                    throw;
+                }
                 
                 statistics.IncrementRetrieved();
                 statistics.CurrentActiveObjects = this.ActiveObjects.Count;
@@ -342,15 +352,24 @@ namespace EsoxSolutions.ObjectPool.Pools
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
 
-            // Execute create hook
-            _lifecycleHookManager?.ExecuteOnCreate(newObject);
+            try
+            {
+                // Execute create hook
+                _lifecycleHookManager?.ExecuteOnCreate(newObject);
 
-            // Track the new object for eviction
-            _evictionManager?.TrackObject(newObject);
-            _evictionManager?.RecordAccess(newObject);
+                // Track the new object for eviction
+                _evictionManager?.TrackObject(newObject);
+                _evictionManager?.RecordAccess(newObject);
 
-            // Execute acquire hook
-            _lifecycleHookManager?.ExecuteOnAcquire(newObject);
+                // Execute acquire hook
+                _lifecycleHookManager?.ExecuteOnAcquire(newObject);
+            }
+            catch
+            {
+                _evictionManager?.UntrackObject(newObject);
+                this.ActiveObjectSlots.Release();
+                throw;
+            }
 
             // Add directly to active objects without pushing to available first
             if (!this.ActiveObjects.TryAdd(newObject, 0))
@@ -372,7 +391,7 @@ namespace EsoxSolutions.ObjectPool.Pools
         /// <summary>
         /// Returns an object to the pool
         /// </summary>
-        public new void ReturnObject(PoolModel<T> obj)
+        public override void ReturnObject(PoolModel<T> obj)
         {
             if (Disposed) throw new ObjectDisposedException(nameof(DynamicObjectPool<>));
 
@@ -384,6 +403,8 @@ namespace EsoxSolutions.ObjectPool.Pools
                 Logger?.LogWarning(PoolConstants.Messages.ObjectNotInActiveList);
                 throw new NoObjectsInPoolException(PoolConstants.Messages.ObjectNotInPool);
             }
+
+            this.ActiveObjectSlots.Release();
 
             // Execute return hook
             _lifecycleHookManager?.ExecuteOnReturn(unwrapped);

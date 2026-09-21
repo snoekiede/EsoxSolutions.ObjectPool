@@ -75,7 +75,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var objectPool = new ObjectPool<int>([]);
             
             // Should throw when getting from empty pool
-            Assert.Throws<NoObjectsInPoolException>(() => objectPool.GetObject());
+            Assert.Throws<NoObjectsInPoolException>(objectPool.GetObject);
         }
 
         [Fact]
@@ -144,7 +144,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var obj2 = pool.GetObject();
             
             // This should throw
-            Assert.Throws<InvalidOperationException>(() => pool.GetObject());
+            Assert.Throws<InvalidOperationException>(pool.GetObject);
             
             // Clean up
             obj1.Dispose();

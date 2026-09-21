@@ -6,8 +6,8 @@ namespace EsoxSolutions.ObjectPool.Tests.Policies
     {
         private class PriorityItem
         {
-            public string Name { get; set; } = string.Empty;
-            public int Priority { get; set; }
+            public string Name { get; init; } = string.Empty;
+            public int Priority { get; init; }
         }
 
         [Fact]

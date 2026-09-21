@@ -116,7 +116,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             var obj2 = pool.GetObject();
 
             // Third attempt should fail due to limit
-            Assert.Throws<InvalidOperationException>(() => pool.GetObject());
+            Assert.Throws<InvalidOperationException>(pool.GetObject);
 
             // Clean up
             obj1.Dispose();
@@ -181,7 +181,7 @@ namespace EsoxSolutions.ObjectPool.Tests
             pool.Dispose();
 
             // Should throw after disposal
-            Assert.Throws<ObjectDisposedException>(() => pool.GetObject());
+            Assert.Throws<ObjectDisposedException>(pool.GetObject);
             Assert.False(pool.TryGetObject(out _));
         }
 

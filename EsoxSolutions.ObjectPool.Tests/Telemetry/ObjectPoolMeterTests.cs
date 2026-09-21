@@ -208,29 +208,27 @@ public class ObjectPoolMeterTests
         var pool = provider.GetRequiredService<Interfaces.IObjectPool<Car>>();
 
         var measurements = new List<string>();
-        using var meterListener = new MeterListener
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, listener) =>
         {
-            InstrumentPublished = (instrument, listener) =>
+            if (instrument.Meter.Name == "EsoxSolutions.ObjectPool")
             {
-                if (instrument.Meter.Name == "EsoxSolutions.ObjectPool")
-                {
-                    listener.EnableMeasurementEvents(instrument);
-                    measurements.Add($"Published: {instrument.Name}");
-                }
+                listener.EnableMeasurementEvents(instrument);
+                measurements.Add($"Published: {instrument.Name}");
             }
         };
 
-        meterListener.SetMeasurementEventCallback<int>((instrument, measurement, tags, state) =>
+        meterListener.SetMeasurementEventCallback<int>((instrument, measurement, _, _) =>
         {
             measurements.Add($"{instrument.Name}: {measurement}");
         });
 
-        meterListener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+        meterListener.SetMeasurementEventCallback<double>((instrument, measurement, _, _) =>
         {
             measurements.Add($"{instrument.Name}: {measurement:F2}");
         });
 
-        meterListener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
+        meterListener.SetMeasurementEventCallback<long>((instrument, measurement, _, _) =>
         {
             measurements.Add($"{instrument.Name}: {measurement}");
         });
@@ -241,7 +239,7 @@ public class ObjectPoolMeterTests
         using var meter = new ObjectPoolMeter<Car>(pool, poolName: "test-pool");
         
         // Get an object to trigger metrics
-        using (var obj = pool.GetObject())
+        using (pool.GetObject())
         {
             meter.RecordRetrieval(durationMs: 1.5);
         }
@@ -274,7 +272,7 @@ public class ObjectPoolMeterTests
         for (int i = 0; i < 5; i++)
         {
             meter.RecordRetrieval(durationMs: i * 0.5);
-            using (var obj = pool.GetObject())
+            using (pool.GetObject())
             {
                 // Use object
             }

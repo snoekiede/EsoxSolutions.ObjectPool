@@ -55,7 +55,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             // Arrange
             var resource1 = new AsyncDisposableResource();
             var resource2 = new AsyncDisposableResource();
-            var pool = new ObjectPool<AsyncDisposableResource>(new List<AsyncDisposableResource> { resource1, resource2 });
+            var pool = new ObjectPool<AsyncDisposableResource>([resource1, resource2]);
 
             // Act
             await pool.DisposeAsync();
@@ -73,7 +73,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             // Arrange
             var resource1 = new SyncDisposableResource();
             var resource2 = new SyncDisposableResource();
-            var pool = new ObjectPool<SyncDisposableResource>(new List<SyncDisposableResource> { resource1, resource2 });
+            var pool = new ObjectPool<SyncDisposableResource>([resource1, resource2]);
 
             // Act
             await pool.DisposeAsync();
@@ -88,7 +88,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
         {
             // Arrange
             var resource = new BothDisposableResource();
-            var pool = new ObjectPool<BothDisposableResource>(new List<BothDisposableResource> { resource });
+            var pool = new ObjectPool<BothDisposableResource>([resource]);
 
             // Act
             await pool.DisposeAsync();
@@ -104,10 +104,10 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
             // Arrange
             var resource1 = new AsyncDisposableResource();
             var resource2 = new AsyncDisposableResource();
-            var pool = new ObjectPool<AsyncDisposableResource>(new List<AsyncDisposableResource> { resource1, resource2 });
+            var pool = new ObjectPool<AsyncDisposableResource>([resource1, resource2]);
 
             // Get one object (make it active)
-            var pooled = pool.GetObject();
+            pool.GetObject();
 
             // Act
             await pool.DisposeAsync();
@@ -122,7 +122,7 @@ namespace EsoxSolutions.ObjectPool.Tests.Async
         {
             // Arrange
             var resource = new AsyncDisposableResource();
-            var pool = new ObjectPool<AsyncDisposableResource>(new List<AsyncDisposableResource> { resource });
+            var pool = new ObjectPool<AsyncDisposableResource>([resource]);
 
             // Act
             await pool.DisposeAsync();

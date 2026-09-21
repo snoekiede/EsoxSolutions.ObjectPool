@@ -201,7 +201,7 @@ public class ServiceCollectionExtensionsTests
         }
         
         // Next one should throw
-        Assert.Throws<InvalidOperationException>(() => pool.GetObject());
+        Assert.Throws<InvalidOperationException>(pool.GetObject);
         
         // Cleanup
         objects.ForEach(o => o.Dispose());

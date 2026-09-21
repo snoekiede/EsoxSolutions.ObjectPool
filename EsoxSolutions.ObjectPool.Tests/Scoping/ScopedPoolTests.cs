@@ -132,8 +132,8 @@ public class ScopedPoolTests
         var scope2 = PoolScope.FromTenant("tenant2");
 
         // Act
-        Car? car1 = null;
-        Car? car2 = null;
+        Car? car1;
+        Car? car2;
 
         using (AmbientPoolScope.BeginScope(scope1))
         {
@@ -221,7 +221,7 @@ public class ScopedPoolTests
         var config = new ScopedPoolConfiguration
         {
             DisposePoolsOnCleanup = true,
-            OnScopeDisposed = scope => disposed = true
+            OnScopeDisposed = _ => disposed = true
         };
 
         var manager = new ScopedPoolManager<DisposableCar>(
@@ -280,7 +280,8 @@ public class ScopedPoolTests
         var pool = manager.GetPoolForScope(testScope);
 
         // Get an object to generate some stats
-        using (var obj = pool.GetObject()) { }
+        using (pool.GetObject())
+        { }
 
         // Act
         var scopeStats = manager.GetScopeStatistics(testScope);
@@ -300,22 +301,28 @@ public class ScopedPoolTests
         var config = new ScopedPoolConfiguration
         {
             ResolutionStrategy = ScopeResolutionStrategy.Custom,
-            CustomScopeResolver = () => currentScope
+            CustomScopeResolver = () => currentScope,
+            // Disable automatic cleanup in tests to avoid background timer interference
+            EnableAutomaticCleanup = false
         };
 
         var manager = new ScopedPoolManager<Car>(
             scope => new DynamicObjectPool<Car>(() => new Car(scope.Id, "Model")),
             config);
 
-        // Act
-        using var obj1 = manager.GetObject();
-        
+        // Act - dispose first object before switching scope to ensure the pool has available objects
+        Car? car1 = null;
+        Car? car2 = null;
+
+        using (var obj1 = manager.GetObject()) { car1 = obj1.Unwrap(); }
+
         currentScope = PoolScope.FromTenant("tenant2");
-        using var obj2 = manager.GetObject();
+
+        using (var obj2 = manager.GetObject()) { car2 = obj2.Unwrap(); }
 
         // Assert
-        Assert.Equal("tenant:tenant1", obj1.Unwrap().Make);
-        Assert.Equal("tenant:tenant2", obj2.Unwrap().Make);
+        Assert.Equal("tenant:tenant1", car1!.Make);
+        Assert.Equal("tenant:tenant2", car2!.Make);
     }
 
     [Fact]
@@ -326,7 +333,7 @@ public class ScopedPoolTests
 
         // Act
         services.AddScopedObjectPool<Car>(
-            (sp, scope) => new Car(scope.Id, "Model"),
+            (_, scope) => new Car(scope.Id, "Model"),
             config => config.MaxPoolSize = 10);
 
         var provider = services.BuildServiceProvider();
@@ -347,7 +354,7 @@ public class ScopedPoolTests
 
         // Act
         services.AddTenantScopedObjectPool<Car>(
-            (sp, tenantId) => new Car($"tenant-{tenantId}", "Model"));
+            (_, tenantId) => new Car($"tenant-{tenantId}", "Model"));
 
         var provider = services.BuildServiceProvider();
         var manager = provider.GetRequiredService<ScopedPoolManager<Car>>();

@@ -88,8 +88,15 @@ public class CircuitBreaker : IDisposable
     {
         if (!TryAcquirePermission())
         {
-            _statistics.RejectedOperations++;
-            throw new CircuitBreakerOpenException(_statistics);
+            lock (_stateLock)
+            {
+                _statistics.RejectedOperations++;
+            }
+
+            lock (_stateLock)
+            {
+                throw new CircuitBreakerOpenException(_statistics);
+            }
         }
 
         try
@@ -114,7 +121,11 @@ public class CircuitBreaker : IDisposable
 
         if (!TryAcquirePermission())
         {
-            _statistics.RejectedOperations++;
+            lock (_stateLock)
+            {
+                _statistics.RejectedOperations++;
+            }
+
             return false;
         }
 

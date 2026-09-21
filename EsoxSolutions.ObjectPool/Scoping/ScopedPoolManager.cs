@@ -149,11 +149,20 @@ public class ScopedPoolManager<T> : IDisposable where T : class
 
     private PoolScope ResolveCustomScope()
     {
-        if (_configuration.CustomScopeResolver == null)
+        var resolver = _configuration.CustomScopeResolver;
+        if (resolver == null)
         {
             throw new InvalidOperationException("Custom scope resolver not configured");
         }
-        return _configuration.CustomScopeResolver();
+
+        var scope = resolver();
+        if (scope == null)
+        {
+            // Explicitly fail fast — caller must return a valid PoolScope
+            throw new InvalidOperationException("Custom scope resolver returned null");
+        }
+
+        return scope;
     }
 
     private PoolScope ResolveDIScope()
@@ -260,7 +269,8 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     /// </summary>
     public IEnumerable<PoolScope> GetActiveScopes()
     {
-        return _scopedPools.Keys.ToList();
+        // Return a snapshot of the current active scopes
+        return _scopedPools.Keys.ToArray();
     }
 
     /// <summary>

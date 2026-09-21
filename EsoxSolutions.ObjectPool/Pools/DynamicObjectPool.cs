@@ -244,15 +244,15 @@ namespace EsoxSolutions.ObjectPool.Pools
 
         private PoolModel<T> GetObjectInternal()
         {
-            // Check max active objects limit
-            if (this.ActiveObjects.Count >= Configuration.MaxActiveObjects)
+            // Reserve active capacity before consuming an existing object or creating a new one.
+            if (!this.ActiveObjectSlots.Wait(0))
             {
                 throw new InvalidOperationException(string.Format(PoolConstants.Messages.MaxActiveLimitFormat, 
                     Configuration.MaxActiveObjects));
             }
 
             // Try to get an existing object first
-            T? result = null;
+            T? result;
             bool found = false;
 
             // Keep trying until we find a non-expired object or run out
@@ -295,7 +295,12 @@ namespace EsoxSolutions.ObjectPool.Pools
 
             if (found && result != null)
             {
-                this.ActiveObjects.TryAdd(result, 0);
+                if (!this.ActiveObjects.TryAdd(result, 0))
+                {
+                    this.AvailableObjects.Push(result);
+                    this.ActiveObjectSlots.Release();
+                    throw new InvalidOperationException("The object could not be registered as active.");
+                }
                 _evictionManager?.RecordAccess(result);
                 
                 // Execute acquire hook
@@ -311,6 +316,7 @@ namespace EsoxSolutions.ObjectPool.Pools
             // No objects available - check if we have a factory
             if (this._factory == null)
             {
+                this.ActiveObjectSlots.Release();
                 // No factory available to create new objects
                 statistics.IncrementPoolEmpty();
                 Logger?.LogWarning(PoolConstants.Messages.CannotCreateObject);
@@ -325,12 +331,14 @@ namespace EsoxSolutions.ObjectPool.Pools
             }
             catch (Exception ex) when (ex is not OutOfMemoryException)
             {
+                this.ActiveObjectSlots.Release();
                 Logger?.LogError(ex, PoolConstants.Messages.CannotCreateObject);
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject, ex);
             }
 
             if (newObject == null)
             {
+                this.ActiveObjectSlots.Release();
                 throw new UnableToCreateObjectException(PoolConstants.Messages.CannotCreateObject);
             }
 
@@ -345,7 +353,11 @@ namespace EsoxSolutions.ObjectPool.Pools
             _lifecycleHookManager?.ExecuteOnAcquire(newObject);
 
             // Add directly to active objects without pushing to available first
-            this.ActiveObjects.TryAdd(newObject, 0);
+            if (!this.ActiveObjects.TryAdd(newObject, 0))
+            {
+                this.ActiveObjectSlots.Release();
+                throw new InvalidOperationException("The object could not be registered as active.");
+            }
             statistics.IncrementRetrieved();
             statistics.CurrentActiveObjects = this.ActiveObjects.Count;
             statistics.CurrentAvailableObjects = this.AvailableObjects.Count;

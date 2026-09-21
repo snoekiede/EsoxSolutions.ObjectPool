@@ -1,6 +1,3 @@
-using EsoxSolutions.ObjectPool.Models;
-using Microsoft.Extensions.DependencyInjection;
-
 namespace EsoxSolutions.ObjectPool.DependencyInjection
 {
     /// <summary>

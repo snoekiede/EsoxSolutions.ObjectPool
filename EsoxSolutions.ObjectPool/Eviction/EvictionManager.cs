@@ -64,8 +64,7 @@ public class EvictionManager<T> : IDisposable where T : notnull
 
         if (_metadata.TryGetValue(obj, out var metadata))
         {
-            metadata.LastAccessedAt = DateTime.UtcNow;
-            metadata.AccessCount++;
+            metadata.RecordAccess(DateTime.UtcNow);
         }
     }
 
@@ -78,7 +77,7 @@ public class EvictionManager<T> : IDisposable where T : notnull
 
         if (_metadata.TryGetValue(obj, out var metadata))
         {
-            metadata.LastReturnedAt = DateTime.UtcNow;
+            metadata.RecordReturn(DateTime.UtcNow);
         }
     }
 

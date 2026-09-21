@@ -96,6 +96,38 @@ This release focuses exclusively on correctness, thread-safety, and reliability.
 - **Circuit Breaker** - Protect against cascading failures with automatic recovery
 - **Lifecycle Hooks** - Execute custom logic at object creation, acquisition, return, and disposal
 - **Scoped Pools** - Multi-tenancy support with per-tenant/user/context pool isolation
+
+### Custom Scope Resolver (advanced)
+
+The scoped pool manager supports a pluggable CustomScopeResolver when you set
+`ScopedPoolConfiguration.ResolutionStrategy = ScopeResolutionStrategy.Custom`.
+The resolver delegate is invoked each time a scope needs to be resolved, so it
+may return a different <code>PoolScope</code> over time (for example if you
+store the current scope in a mutable local variable or read it from an
+ambient context).
+
+Example:
+
+```csharp
+PoolScope? currentScope = PoolScope.FromTenant("tenant1");
+var config = new ScopedPoolConfiguration
+{
+    ResolutionStrategy = ScopeResolutionStrategy.Custom,
+    CustomScopeResolver = () => currentScope
+};
+
+var manager = new ScopedPoolManager<MyResource>(scope =>
+    new DynamicObjectPool<MyResource>(() => new MyResource(scope.Id)),
+    config);
+
+using var obj1 = manager.GetObject(); // resolved using tenant1
+
+currentScope = PoolScope.FromTenant("tenant2");
+using var obj2 = manager.GetObject(); // resolved using tenant2
+```
+
+If the resolver is not configured or returns <c>null</c>, the manager will throw
+an <c>InvalidOperationException</c> to indicate an invalid resolution.
 - **Thread-safe object pooling** with lock-free concurrent operations
 - **Automatic return of objects** via IDisposable pattern
 - **Async support** with `GetObjectAsync`, `TryGetObjectAsync`, timeout and cancellation

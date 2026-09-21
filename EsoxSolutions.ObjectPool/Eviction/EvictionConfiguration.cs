@@ -77,25 +77,61 @@ public class EvictionConfiguration
 /// </summary>
 public class ObjectMetadata
 {
+    private readonly object _sync = new();
+    private DateTime _createdAt = DateTime.UtcNow;
+    private DateTime? _lastAccessedAt;
+    private DateTime? _lastReturnedAt;
+    private int _accessCount;
+
     /// <summary>
     /// When the object was created/added to the pool
     /// </summary>
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt
+    {
+        get { lock (_sync) return _createdAt; }
+        set { lock (_sync) _createdAt = value; }
+    }
 
     /// <summary>
     /// When the object was last retrieved from the pool
     /// </summary>
-    public DateTime? LastAccessedAt { get; set; }
+    public DateTime? LastAccessedAt
+    {
+        get { lock (_sync) return _lastAccessedAt; }
+        set { lock (_sync) _lastAccessedAt = value; }
+    }
 
     /// <summary>
     /// When the object was last returned to the pool
     /// </summary>
-    public DateTime? LastReturnedAt { get; set; }
+    public DateTime? LastReturnedAt
+    {
+        get { lock (_sync) return _lastReturnedAt; }
+        set { lock (_sync) _lastReturnedAt = value; }
+    }
 
     /// <summary>
     /// Number of times the object has been retrieved
     /// </summary>
-    public int AccessCount { get; set; }
+    public int AccessCount
+    {
+        get { lock (_sync) return _accessCount; }
+        set { lock (_sync) _accessCount = value; }
+    }
+
+    internal void RecordAccess(DateTime timestamp)
+    {
+        lock (_sync)
+        {
+            _lastAccessedAt = timestamp;
+            _accessCount++;
+        }
+    }
+
+    internal void RecordReturn(DateTime timestamp)
+    {
+        lock (_sync) _lastReturnedAt = timestamp;
+    }
 
     /// <summary>
     /// Custom metadata tags

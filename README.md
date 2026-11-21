@@ -2,11 +2,11 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9, .NET 10, and .NET 11. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
-## What's New in Version 4.2.0 — Production Hardening
+## What's New in Version 4.5.0 — .NET 11 Support & Architecture Hardening
 
-This release focuses exclusively on correctness, thread-safety, and reliability. No new public API surface is introduced; all changes are internal quality improvements.
+This release adds .NET 11 (`net11.0`) support, unifies the pooling policy architecture across all pool types, and resolves key concurrency, polymorphism, eviction, circuit-breaker, and dependency injection issues.
 
 ### Thread-Safety & Atomicity
 - **Atomic statistics counters** — `PoolStatistics` properties are now backed by private `long`/`int` fields updated via `Interlocked.Increment`, `Interlocked.Read`, and a CAS loop for peak tracking. Raw `++` mutations are gone entirely.
@@ -20,7 +20,10 @@ This release focuses exclusively on correctness, thread-safety, and reliability.
 - **Correct cancellation exception type** — `SemaphoreSlim.WaitAsync` emits `TaskCanceledException`; the library now re-throws via `ThrowIfCancellationRequested()` to honour the `OperationCanceledException` contract expected by callers.
 
 ### Bug Fixes
-- **`DynamicObjectPool.ReturnObject` validation bypass** — The `if (!valid)` guard block was accidentally dropped during refactoring, causing invalid objects to be unconditionally returned to the pool. Restored, including the `ExecuteOnValidationFailed` lifecycle hook call.
+- **`ActiveObjectSlots` semaphore release on synchronous returns** — `ObjectPool<T>.ReturnObject`, `DynamicObjectPool<T>.ReturnObject`, and failed query lookups in `QueryableObjectPool<T>.GetObject(query)` now release `ActiveObjectSlots`, preventing slot exhaustion when `MaxActiveObjects` is set.
+- **`DynamicObjectPool<T>` polymorphic overrides** — `ReturnObject`, `ReturnObjectAsync`, and `TryGetObject` are now properly overridden so `using var model = pool.GetObject()`, `await using var model = await pool.GetObjectAsync()`, `TryGetObject`, and `GetObjectAsync` all invoke the factory, circuit breaker, eviction checks, and lifecycle hooks.
+- **Unified `IPoolingPolicy<T>` backing store & `QueryableObjectPool<T>` hierarchy** — `ObjectPool<T>`, `DynamicObjectPool<T>`, and `QueryableObjectPool<T>` share a unified `IPoolingPolicy<T>` storage layer honoring `Lifo`, `Fifo`, `Priority`, `LeastRecentlyUsed`, and `RoundRobin` policies with atomic predicate queries.
+- **`DynamicObjectPool.ReturnObject` validation bypass** — The `if (!valid)` guard block was accidentally dropped during refactoring, causing invalid objects to be unconditionally returned to the pool. Restored, including the `ExecuteOnValidationFailed` lifecycle hook call and disposal/untracking of discarded objects.
 - **`DynamicObjectPool.DisposeAsync` missing timer disposal** — `DisposeAsync` did not dispose the eviction timer, circuit breaker, or eviction manager. An `override DisposeAsync` now disposes these before calling `base.DisposeAsync()`.
 - **`SemaphoreSlim` leaks** — The availability signal semaphore is now disposed in both the synchronous `Dispose(bool)` and the `DisposeAsync` paths for all pool types.
 
@@ -32,7 +35,7 @@ This release focuses exclusively on correctness, thread-safety, and reliability.
 - **LRU policy O(n log n) → O(n)** — `LeastRecentlyUsedPolicy<T>.TryTake` replaced `OrderBy().First()` (LINQ, allocations, O(n log n)) with a single `foreach` pass tracking the minimum timestamp — zero allocations, half the work, all under the existing lock.
 
 ### Quality
-- **235 tests, 235 passing** — Full test suite green across .NET 8, 9, and 10.
+- **252 tests, 252 passing** — Full test suite green across .NET 8, 9, 10, and 11.
 
 ## What's New in Version 4.1.0
 
@@ -626,7 +629,15 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Version History
 
-### 4.1.0 (Current) - January 2025
+### 4.5.0 (Current) - November 2026
+- **.NET 11 Support**: Multi-targeted across `net8.0`, `net9.0`, `net10.0`, and `net11.0`
+- **Unified Pooling Policy Architecture**: `ObjectPool<T>`, `DynamicObjectPool<T>`, and `QueryableObjectPool<T>` now share a unified `IPoolingPolicy<T>` storage layer with atomic predicate queries
+- **`PoolModel<T>` & `ScopedPoolManager<T>` Async Disposal**: Both now implement `IAsyncDisposable`
+- **Generic `PoolConfiguration<T>`**: Strongly-typed validation, priority, and lifecycle delegates avoiding value-type boxing
+- **Concurrency & Polymorphism Fixes**: Fixed `ActiveObjectSlots` semaphore release on synchronous returns, `DynamicObjectPool<T>` method overrides, background eviction at arbitrary pool positions, `ObjectMetadata.IdleTime` tracking, windowed circuit-breaker failure rates, and DI extension wiring
+- **252/252 tests passing** across .NET 8, 9, 10, and 11
+
+### 4.1.0 - January 2025
 - **Pooling Policies**: LIFO, FIFO, Priority, LRU, Round-Robin retrieval strategies
   - Fluent API: `.WithFifoPolicy()`, `.WithPriorityPolicy()`, etc.
   - 5 built-in policies, custom policy support via `IPoolingPolicy<T>`

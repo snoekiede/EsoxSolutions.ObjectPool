@@ -1,5 +1,6 @@
 using EsoxSolutions.ObjectPool.CircuitBreaker;
 using EsoxSolutions.ObjectPool.Eviction;
+using EsoxSolutions.ObjectPool.Lifecycle;
 using EsoxSolutions.ObjectPool.Policies;
 
 namespace EsoxSolutions.ObjectPool.Models
@@ -61,7 +62,7 @@ namespace EsoxSolutions.ObjectPool.Models
 
         /// <summary>
         /// The pooling policy type to use (default: LIFO for best performance).
-        /// This is used by PolicyBasedObjectPool and DynamicObjectPool with policies.
+        /// This is used by ObjectPool, DynamicObjectPool, and QueryableObjectPool.
         /// </summary>
         public PoolingPolicyType PoolingPolicyType { get; set; } = PoolingPolicyType.Lifo;
 
@@ -83,5 +84,87 @@ namespace EsoxSolutions.ObjectPool.Models
         /// When true, objects implementing IAsyncDisposable will be disposed asynchronously.
         /// </summary>
         public bool UseAsyncDisposal { get; set; } = true;
+
+        internal bool HasSyncValidator => ValidateOnReturn && ValidationFunction != null;
+        internal bool HasAsyncValidator => ValidateOnReturn && AsyncValidationFunction != null;
+
+        internal virtual bool ValidateSync<T>(T item) where T : notnull
+            => ValidationFunction == null || ValidationFunction(item);
+
+        internal virtual ValueTask<bool> ValidateAsync<T>(T item) where T : notnull
+            => AsyncValidationFunction == null ? ValueTask.FromResult(true) : AsyncValidationFunction(item);
+    }
+
+    /// <summary>
+    /// Strongly-typed configuration options for object pools of type <typeparamref name="T"/>,
+    /// avoiding boxing for value types and providing compile-time type safety for delegates.
+    /// </summary>
+    /// <typeparam name="T">The type of pooled object</typeparam>
+    public class PoolConfiguration<T> : PoolConfiguration where T : notnull
+    {
+        private Func<T, bool>? _typedValidationFunction;
+        private Func<T, ValueTask<bool>>? _typedAsyncValidationFunction;
+
+        /// <summary>
+        /// Strongly-typed validation function for returned objects
+        /// </summary>
+        public Func<T, bool>? TypedValidationFunction
+        {
+            get => _typedValidationFunction;
+            set
+            {
+                _typedValidationFunction = value;
+                base.ValidationFunction = value != null ? obj => value((T)obj) : null;
+            }
+        }
+
+        /// <summary>
+        /// Strongly-typed async validation function for returned objects
+        /// </summary>
+        public Func<T, ValueTask<bool>>? TypedAsyncValidationFunction
+        {
+            get => _typedAsyncValidationFunction;
+            set
+            {
+                _typedAsyncValidationFunction = value;
+                base.AsyncValidationFunction = value != null ? obj => value((T)obj) : null;
+            }
+        }
+
+        /// <summary>
+        /// Strongly-typed lifecycle hooks
+        /// </summary>
+        public LifecycleHooks<T>? TypedLifecycleHooks
+        {
+            get => base.LifecycleHooks as LifecycleHooks<T>;
+            set => base.LifecycleHooks = value;
+        }
+
+        /// <summary>
+        /// Strongly-typed priority selector for Priority pooling policy
+        /// </summary>
+        public Func<T, int>? TypedPrioritySelector
+        {
+            get => base.PrioritySelector as Func<T, int>;
+            set => base.PrioritySelector = value;
+        }
+
+        internal override bool ValidateSync<TItem>(TItem item)
+        {
+            if (_typedValidationFunction != null && item is T typedItem)
+            {
+                return _typedValidationFunction(typedItem);
+            }
+            return base.ValidateSync(item);
+        }
+
+        internal override ValueTask<bool> ValidateAsync<TItem>(TItem item)
+        {
+            if (_typedAsyncValidationFunction != null && item is T typedItem)
+            {
+                return _typedAsyncValidationFunction(typedItem);
+            }
+            return base.ValidateAsync(item);
+        }
     }
 }

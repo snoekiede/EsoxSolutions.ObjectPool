@@ -40,15 +40,15 @@
 
 ### ✅ Completed
 - [x] Thread-safe operations with proper locking
-- [x] Comprehensive test coverage (23 tests)
-- [x] Performance optimization (O(1) operations)
-- [x] Configuration management
-- [x] Health monitoring
+- [x] Comprehensive test coverage (252 tests across .NET 8, 9, 10, and 11)
+- [x] Performance optimization (O(1) operations & atomic policy queries)
+- [x] Configuration management (including generic `PoolConfiguration<T>`)
+- [x] Health monitoring (including `WithHealthChecks()` and `AddAllObjectPoolHealthChecks()`)
 - [x] Logging integration
-- [x] Metrics export
-- [x] Async support with cancellation
-- [x] Error handling and validation
-- [x] Multi-framework support (.NET 8.0, 9.0)
+- [x] Metrics export (OpenTelemetry & Prometheus)
+- [x] Async support with cancellation and `IAsyncDisposable` on `PoolModel<T>`, pools, and `ScopedPoolManager<T>`
+- [x] Error handling, validation, and automatic disposal of rejected/excess objects
+- [x] Multi-framework support (.NET 8.0, 9.0, 10.0, 11.0)
 - [x] Documentation and examples
 
 ### 🎯 Production Ready Status: 100%

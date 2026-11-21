@@ -19,11 +19,8 @@ namespace EsoxSolutions.ObjectPool.DependencyInjection
             if (asyncValidationFunction == null)
                 throw new ArgumentNullException(nameof(asyncValidationFunction));
 
-            builder.Configure(config =>
-            {
-                config.ValidateOnReturn = true;
-                config.AsyncValidationFunction = obj => asyncValidationFunction((T)obj);
-            });
+            builder.Configuration.ValidateOnReturn = true;
+            builder.Configuration.TypedAsyncValidationFunction = asyncValidationFunction;
 
             return builder;
         }

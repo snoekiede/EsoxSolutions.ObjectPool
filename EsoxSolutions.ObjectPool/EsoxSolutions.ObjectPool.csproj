@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Description>A high-performance, thread-safe object pool for .NET 8+ with dependency injection, health checks, OpenTelemetry metrics, warm-up, eviction/TTL, circuit breaker, lifecycle hooks, and scoped pools for multi-tenancy. Perfect for pooling expensive resources like database connections and HTTP clients.</Description>
@@ -10,14 +10,14 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/snoekiede/EsoxSolutions.ObjectPool</RepositoryUrl>
     <PackageTags>objectpool;threadsafe;async;performance;metrics;healthchecks;dependencyinjection;opentelemetry;warmup;eviction;ttl;circuitbreaker;lifecycle;multitenancy;scopedpools</PackageTags>
-    <AssemblyVersion>4.0.2</AssemblyVersion>
-    <FileVersion>4.0.2</FileVersion>
+    <AssemblyVersion>4.5.0</AssemblyVersion>
+    <FileVersion>4.5.0</FileVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <Title>Production-Ready Object Pool for .NET with Complete Observability</Title>
     <Authors>Iede Snoek</Authors>
-    <PackageReleaseNotes>Version 4.1.0: Added pooling policies (LIFO, FIFO, Priority, LRU, Round-Robin) for flexible retrieval strategies, IAsyncDisposable support for proper async cleanup, async validation for returned objects, enhanced AOT compatibility, and improved package quality with SourceLink and validation. 230+ tests passing with 100% success rate. Enterprise-ready with comprehensive monitoring and observability.</PackageReleaseNotes>
+    <PackageReleaseNotes>Version 4.5.0: Added .NET 11 (net11.0) target framework support, unified pooling policies across all pool types, added IAsyncDisposable support to PoolModel&lt;T&gt; and ScopedPoolManager&lt;T&gt;, added generic PoolConfiguration&lt;T&gt;, fixed semaphore slot releases on synchronous returns, fixed DynamicObjectPool polymorphism, hardened eviction and circuit breaker windowing, and completed DI/health-check extensions. 252 tests passing across .NET 8, 9, 10, and 11.</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>4.1.0</Version>
+    <Version>4.5.0</Version>
     <SignAssembly Condition="'$(SignAssembly)' == ''">false</SignAssembly>
     <AssemblyOriginatorKeyFile Condition="'$(AssemblyOriginatorKeyFile)' == '' and Exists('$(MSBuildProjectDirectory)\EsoxSolutions.ObjectPool.snk')">$(MSBuildProjectDirectory)\EsoxSolutions.ObjectPool.snk</AssemblyOriginatorKeyFile>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>

@@ -6,7 +6,7 @@ namespace EsoxSolutions.ObjectPool.Models
     /// A wrapper for the object pool
     /// </summary>
     /// <typeparam name="T">The type of the object to be wrapped</typeparam>
-    public sealed class PoolModel<T> : IDisposable
+    public sealed class PoolModel<T> : IDisposable, IAsyncDisposable
     {
         private readonly T _value;
         private readonly IObjectPool<T> _pool;
@@ -38,8 +38,17 @@ namespace EsoxSolutions.ObjectPool.Models
         /// <exception cref="ObjectDisposedException">Thrown when trying to access a disposed object</exception>
         public T Unwrap()
         {
-            ObjectDisposedException.ThrowIf(_disposed == 1, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) == 1, this);
             return this._value;
+        }
+
+        /// <summary>
+        /// Marks this wrapper as returned and disposed so subsequent Unwrap() throws and Dispose() is a no-op.
+        /// </summary>
+        internal void MarkReturned()
+        {
+            Interlocked.Exchange(ref _returnGuard, 1);
+            Volatile.Write(ref _disposed, 1);
         }
 
         /// <summary>
@@ -58,6 +67,24 @@ namespace EsoxSolutions.ObjectPool.Models
                 finally
                 {
                     // A failed return is terminal for this wrapper; retrying could duplicate ownership.
+                    Volatile.Write(ref _disposed, 1);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Asynchronously returns the poolmodel to the pool. Thread-safe: exactly one caller will perform the return.
+        /// </summary>
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.CompareExchange(ref _returnGuard, 1, 0) == 0)
+            {
+                try
+                {
+                    await this._pool.ReturnObjectAsync(this).ConfigureAwait(false);
+                }
+                finally
+                {
                     Volatile.Write(ref _disposed, 1);
                 }
             }

@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+using EsoxSolutions.ObjectPool.Infrastructure;
 
 namespace EsoxSolutions.ObjectPool.Policies
 {
@@ -10,47 +10,77 @@ namespace EsoxSolutions.ObjectPool.Policies
     /// <typeparam name="T">The type of object managed by the pool</typeparam>
     public class LeastRecentlyUsedPolicy<T> : IPoolingPolicy<T> where T : notnull
     {
-        private readonly ConcurrentDictionary<T, DateTimeOffset> _lastUsedTimes = new();
+        private readonly Dictionary<T, (DateTimeOffset Timestamp, long Sequence)> _lastUsedTimes =
+            new(ReferenceOrValueEqualityComparer<T>.Instance);
         private readonly object _lock = new();
+        private long _sequence;
 
         /// <inheritdoc/>
         public string PolicyName => "LRU";
 
         /// <inheritdoc/>
-        public int Count => _lastUsedTimes.Count;
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _lastUsedTimes.Count;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public void Add(T item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            _lastUsedTimes[item] = DateTimeOffset.UtcNow;
+            lock (_lock)
+            {
+                _lastUsedTimes[item] = (DateTimeOffset.UtcNow, ++_sequence);
+            }
         }
 
         /// <inheritdoc/>
         public bool TryTake(out T? item)
         {
+            return TryTake(_ => true, out item);
+        }
+
+        /// <inheritdoc/>
+        public bool TryTake(Func<T, bool> predicate, out T? item)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+
             lock (_lock)
             {
-                if (_lastUsedTimes.IsEmpty)
+                if (_lastUsedTimes.Count == 0)
                 {
                     item = default;
                     return false;
                 }
 
-                // Find the least recently used item with a single O(n) pass — no allocations,
-                // no intermediate collection, and no LINQ overhead under the lock.
                 T? lruKey = default;
-                DateTimeOffset lruTime = DateTimeOffset.MaxValue;
+                bool found = false;
+                var lruEntry = (Timestamp: DateTimeOffset.MaxValue, Sequence: long.MaxValue);
+
                 foreach (var kvp in _lastUsedTimes)
                 {
-                    if (kvp.Value < lruTime)
+                    if (!predicate(kvp.Key))
                     {
-                        lruTime = kvp.Value;
+                        continue;
+                    }
+
+                    if (!found ||
+                        kvp.Value.Timestamp < lruEntry.Timestamp ||
+                        (kvp.Value.Timestamp == lruEntry.Timestamp && kvp.Value.Sequence < lruEntry.Sequence))
+                    {
+                        lruEntry = kvp.Value;
                         lruKey = kvp.Key;
+                        found = true;
                     }
                 }
 
-                if (lruKey is not null && _lastUsedTimes.TryRemove(lruKey, out _))
+                if (found && lruKey is not null && _lastUsedTimes.Remove(lruKey))
                 {
                     item = lruKey;
                     return true;
@@ -64,14 +94,19 @@ namespace EsoxSolutions.ObjectPool.Policies
         /// <inheritdoc/>
         public void Clear()
         {
-            _lastUsedTimes.Clear();
+            lock (_lock)
+            {
+                _lastUsedTimes.Clear();
+            }
         }
 
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            // Return the current set of keys; Keys is already an IEnumerable<T>
-            return _lastUsedTimes.Keys;
+            lock (_lock)
+            {
+                return [.. _lastUsedTimes.Keys];
+            }
         }
     }
 }

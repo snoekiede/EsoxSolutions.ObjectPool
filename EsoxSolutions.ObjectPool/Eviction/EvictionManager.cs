@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using EsoxSolutions.ObjectPool.Infrastructure;
+using EsoxSolutions.ObjectPool.Lifecycle;
 using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.Eviction;
@@ -13,8 +15,8 @@ public class EvictionManager<T> : IDisposable where T : notnull
     private readonly EvictionConfiguration _configuration;
     private readonly ConcurrentDictionary<T, ObjectMetadata> _metadata;
     private readonly ILogger? _logger;
-    private readonly Timer? _evictionTimer;
     private readonly EvictionStatistics _statistics = new();
+    private readonly object _statsLock = new();
     private volatile bool _disposed;
 
     /// <summary>
@@ -26,23 +28,7 @@ public class EvictionManager<T> : IDisposable where T : notnull
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger;
-        _metadata = new ConcurrentDictionary<T, ObjectMetadata>();
-
-        if (_configuration.EnableBackgroundEviction && _configuration.Policy != EvictionPolicy.None)
-        {
-            _evictionTimer = new Timer(
-                RunEviction,
-                null,
-                _configuration.EvictionInterval,
-                _configuration.EvictionInterval);
-
-            _logger?.LogInformation(
-                "Started background eviction with policy: {Policy}, TTL: {TTL}, Idle: {Idle}, Interval: {Interval}",
-                _configuration.Policy,
-                _configuration.TimeToLive,
-                _configuration.IdleTimeout,
-                _configuration.EvictionInterval);
-        }
+        _metadata = new ConcurrentDictionary<T, ObjectMetadata>(ReferenceOrValueEqualityComparer<T>.Instance);
     }
 
     /// <summary>
@@ -94,6 +80,16 @@ public class EvictionManager<T> : IDisposable where T : notnull
     /// </summary>
     public bool ShouldEvict(T obj)
     {
+        return TryGetEvictionReason(obj, out _);
+    }
+
+    /// <summary>
+    /// Checks if an object should be evicted and outputs the reason
+    /// </summary>
+    internal bool TryGetEvictionReason(T obj, out EvictionReason reason)
+    {
+        reason = EvictionReason.TimeToLive;
+
         if (_configuration.Policy == EvictionPolicy.None) return false;
 
         if (!_metadata.TryGetValue(obj, out var metadata))
@@ -101,35 +97,73 @@ public class EvictionManager<T> : IDisposable where T : notnull
             return false;
         }
 
-        return ShouldEvictInternal(obj, metadata);
+        return TryGetEvictionReasonInternal(obj, metadata, out reason, out _, out _, out _);
     }
 
-    private bool ShouldEvictInternal(T obj, ObjectMetadata metadata)
+    private bool TryGetEvictionReasonInternal(
+        T obj,
+        ObjectMetadata metadata,
+        out EvictionReason primaryReason,
+        out bool ttlExpired,
+        out bool idleExpired,
+        out bool customEviction)
     {
-        // Custom predicate takes precedence
-        if (_configuration.CustomEvictionPredicate != null)
+        primaryReason = EvictionReason.TimeToLive;
+        customEviction = _configuration.CustomEvictionPredicate?.Invoke(obj, metadata) ?? false;
+        ttlExpired = (_configuration.Policy is EvictionPolicy.TimeToLive or EvictionPolicy.Combined) &&
+                     metadata.Age >= _configuration.TimeToLive;
+        idleExpired = (_configuration.Policy is EvictionPolicy.IdleTimeout or EvictionPolicy.Combined) &&
+                      metadata.IdleTime >= _configuration.IdleTimeout;
+
+        if (customEviction)
         {
-            if (_configuration.CustomEvictionPredicate(obj, metadata))
-            {
-                return true;
-            }
+            primaryReason = EvictionReason.CustomPredicate;
+            return true;
         }
 
         switch (_configuration.Policy)
         {
-            case EvictionPolicy.TimeToLive:
-                return metadata.Age >= _configuration.TimeToLive;
+            case EvictionPolicy.TimeToLive when ttlExpired:
+                primaryReason = EvictionReason.TimeToLive;
+                return true;
 
-            case EvictionPolicy.IdleTimeout:
-                return metadata.IdleTime >= _configuration.IdleTimeout;
+            case EvictionPolicy.IdleTimeout when idleExpired:
+                primaryReason = EvictionReason.IdleTimeout;
+                return true;
 
-            case EvictionPolicy.Combined:
-                return metadata.Age >= _configuration.TimeToLive ||
-                       metadata.IdleTime >= _configuration.IdleTimeout;
+            case EvictionPolicy.Combined when ttlExpired || idleExpired:
+                primaryReason = ttlExpired ? EvictionReason.TimeToLive : EvictionReason.IdleTimeout;
+                return true;
 
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// Records an inline eviction that occurred during object acquisition
+    /// </summary>
+    internal void RecordInlineEviction(T obj, EvictionReason reason)
+    {
+        lock (_statsLock)
+        {
+            switch (reason)
+            {
+                case EvictionReason.TimeToLive:
+                    _statistics.TtlEvictions++;
+                    break;
+                case EvictionReason.IdleTimeout:
+                    _statistics.IdleEvictions++;
+                    break;
+                case EvictionReason.CustomPredicate:
+                    _statistics.CustomEvictions++;
+                    break;
+            }
+
+            _statistics.TotalEvictions++;
+        }
+
+        _metadata.TryRemove(obj, out _);
     }
 
     /// <summary>
@@ -140,29 +174,41 @@ public class EvictionManager<T> : IDisposable where T : notnull
     /// <returns>Number of objects evicted</returns>
     public int RunEviction(IEnumerable<T> objects, Action<T> removeAction)
     {
+        ArgumentNullException.ThrowIfNull(removeAction);
+        return RunEviction(objects, (obj, _) =>
+        {
+            removeAction(obj);
+            return true;
+        });
+    }
+
+    /// <summary>
+    /// Runs eviction on a collection of objects using a conditional removal callback
+    /// </summary>
+    internal int RunEviction(
+        IEnumerable<T> objects,
+        Func<T, EvictionReason, bool> tryRemoveFunc,
+        Action<T>? beforeDisposeAction = null)
+    {
         if (_configuration.Policy == EvictionPolicy.None) return 0;
 
         var stopwatch = Stopwatch.StartNew();
         var evictedCount = 0;
 
-        foreach (var obj in objects.Take(_configuration.MaxEvictionsPerRun))
+        foreach (var obj in objects)
         {
+            if (evictedCount >= _configuration.MaxEvictionsPerRun)
+            {
+                break;
+            }
+
             if (!_metadata.TryGetValue(obj, out var metadata))
             {
                 continue;
             }
 
-            if (ShouldEvictInternal(obj, metadata))
+            if (TryGetEvictionReasonInternal(obj, metadata, out var reason, out var ttlExpired, out var idleExpired, out var customEviction))
             {
-                // Determine eviction reason for statistics
-                bool ttlExpired = metadata.Age >= _configuration.TimeToLive;
-                bool idleExpired = metadata.IdleTime >= _configuration.IdleTimeout;
-                bool customEviction = _configuration.CustomEvictionPredicate?.Invoke(obj, metadata) ?? false;
-
-                if (ttlExpired) _statistics.TtlEvictions++;
-                if (idleExpired) _statistics.IdleEvictions++;
-                if (customEviction) _statistics.CustomEvictions++;
-
                 _logger?.LogDebug(
                     "Evicting object: Age={Age}, Idle={Idle}, AccessCount={Count}, TTL={TTL}, Idle={IdleExpired}, Custom={Custom}",
                     metadata.Age,
@@ -172,14 +218,18 @@ public class EvictionManager<T> : IDisposable where T : notnull
                     idleExpired,
                     customEviction);
 
-                // Remove from pool
-                removeAction(obj);
+                // Only count and dispose if the pool confirmed the object was removed from the available collection
+                if (!tryRemoveFunc(obj, reason))
+                {
+                    continue;
+                }
 
                 // Dispose if configured
                 if (_configuration.DisposeEvictedObjects && obj is IDisposable disposable)
                 {
                     try
                     {
+                        beforeDisposeAction?.Invoke(obj);
                         disposable.Dispose();
                     }
                     catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -192,14 +242,23 @@ public class EvictionManager<T> : IDisposable where T : notnull
                 _metadata.TryRemove(obj, out _);
 
                 evictedCount++;
-                _statistics.TotalEvictions++;
+                lock (_statsLock)
+                {
+                    if (ttlExpired) _statistics.TtlEvictions++;
+                    if (idleExpired) _statistics.IdleEvictions++;
+                    if (customEviction) _statistics.CustomEvictions++;
+                    _statistics.TotalEvictions++;
+                }
             }
         }
 
         stopwatch.Stop();
-        _statistics.LastEvictionRun = DateTime.UtcNow;
-        _statistics.LastEvictionDuration = stopwatch.Elapsed;
-        _statistics.EvictionRuns++;
+        lock (_statsLock)
+        {
+            _statistics.LastEvictionRun = DateTime.UtcNow;
+            _statistics.LastEvictionDuration = stopwatch.Elapsed;
+            _statistics.EvictionRuns++;
+        }
 
         if (evictedCount > 0)
         {
@@ -210,13 +269,6 @@ public class EvictionManager<T> : IDisposable where T : notnull
         }
 
         return evictedCount;
-    }
-
-    private void RunEviction(object? state)
-    {
-        // This is called by the timer for background eviction
-        // The actual eviction is performed by the pool
-        _logger?.LogDebug("Background eviction triggered");
     }
 
     /// <summary>
@@ -231,7 +283,13 @@ public class EvictionManager<T> : IDisposable where T : notnull
     /// <summary>
     /// Gets eviction statistics
     /// </summary>
-    public EvictionStatistics GetStatistics() => _statistics;
+    public EvictionStatistics GetStatistics()
+    {
+        lock (_statsLock)
+        {
+            return _statistics;
+        }
+    }
 
     /// <summary>
     /// Gets all tracked objects with their metadata
@@ -256,7 +314,6 @@ public class EvictionManager<T> : IDisposable where T : notnull
     {
         if (_disposed) return;
 
-        _evictionTimer?.Dispose();
         _metadata.Clear();
         _disposed = true;
 

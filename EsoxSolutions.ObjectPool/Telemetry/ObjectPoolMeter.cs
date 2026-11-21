@@ -42,7 +42,7 @@ public sealed class ObjectPoolMeter<T> : IDisposable where T : class
         _poolName = poolName ?? typeof(T).Name;
         _meter = new Meter(
             meterName ?? "EsoxSolutions.ObjectPool", 
-            version ?? "3.1.0");
+            version ?? "4.5.0");
         
         InitializeMetrics();
     }

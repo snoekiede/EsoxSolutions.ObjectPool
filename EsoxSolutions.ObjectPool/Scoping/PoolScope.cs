@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace EsoxSolutions.ObjectPool.Scoping;
 
 /// <summary>
@@ -229,6 +231,11 @@ public class ScopedPoolConfiguration
     public string TenantClaimType { get; set; } = "tenant_id";
 
     /// <summary>
+    /// Claim type for user ID
+    /// </summary>
+    public string UserClaimType { get; set; } = "sub";
+
+    /// <summary>
     /// Whether to dispose pools when scopes are cleaned up
     /// </summary>
     public bool DisposePoolsOnCleanup { get; set; } = true;
@@ -287,7 +294,7 @@ public class ScopedPoolStatistics
     /// <summary>
     /// Scope access counts
     /// </summary>
-    public Dictionary<string, long> ScopeAccessCounts { get; } = new();
+    public ConcurrentDictionary<string, long> ScopeAccessCounts { get; } = new();
 }
 
 /// <summary>

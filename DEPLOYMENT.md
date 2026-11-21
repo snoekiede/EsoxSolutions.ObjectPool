@@ -1,9 +1,9 @@
-# Production Deployment Guide - Version 4.0.0
+# Production Deployment Guide - Version 4.5.0
 
 ## Prerequisites
 
 ### Framework Requirements
-- .NET 8.0, .NET 9.0 or .NET 10.0
+- .NET 8.0, .NET 9.0, .NET 10.0, or .NET 11.0
 - Microsoft.Extensions.Logging.Abstractions 8.0.0+
 - Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0+
 - Microsoft.Extensions.Diagnostics.HealthChecks 8.0.0+ (for health checks)
@@ -479,4 +479,4 @@ objectpool_health_status{pool_name="database-pool"}
 
 ## Version
 
-This deployment guide is for **EsoxSolutions.ObjectPool v4.0.0**
+This deployment guide is for **EsoxSolutions.ObjectPool v4.5.0**

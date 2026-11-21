@@ -33,9 +33,9 @@ This ObjectPool library meets all enterprise production requirements:
 - ✅ Dependency injection ready
 
 ### 🧪 **Quality Assurance**
-- ✅ 23 comprehensive tests (100% pass rate)
+- ✅ 252 comprehensive tests (100% pass rate)
 - ✅ Clean build (0 warnings)
-- ✅ Multi-framework support (.NET 8.0, 9.0)
+- ✅ Multi-framework support (.NET 8.0, 9.0, 10.0, 11.0)
 - ✅ Backward compatibility maintained
 - ✅ Documentation complete
 
@@ -71,6 +71,7 @@ This ObjectPool library meets all enterprise production requirements:
 | .NET 8.0 | ✅ Supported | Full feature support |
 | .NET 9.0 | ✅ Supported | Full feature support |
 | .NET 10.0 | ✅ Supported | Full feature support |
+| .NET 11.0 | ✅ Supported | Full feature support |
 | ASP.NET Core | ✅ Supported | Health checks included |
 | Docker/Containers | ✅ Supported | Configuration externalized |
 | Kubernetes | ✅ Supported | Health endpoints ready |

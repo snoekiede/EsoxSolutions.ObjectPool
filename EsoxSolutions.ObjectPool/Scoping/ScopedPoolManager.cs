@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using EsoxSolutions.ObjectPool.Constants;
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using Microsoft.Extensions.Logging;
@@ -9,7 +10,7 @@ namespace EsoxSolutions.ObjectPool.Scoping;
 /// Manages multiple object pools scoped by tenant, user, or context
 /// </summary>
 /// <typeparam name="T">The type of object in the pools</typeparam>
-public class ScopedPoolManager<T> : IDisposable where T : class
+public class ScopedPoolManager<T> : IDisposable, IAsyncDisposable where T : class
 {
     private readonly ConcurrentDictionary<PoolScope, IObjectPool<T>> _scopedPools = new();
     private readonly Func<PoolScope, IObjectPool<T>> _poolFactory;
@@ -17,8 +18,9 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     private readonly ILogger? _logger;
     private readonly Timer? _cleanupTimer;
     private readonly ScopedPoolStatistics _statistics = new();
+    private readonly object _statsLock = new();
     private readonly ConcurrentDictionary<PoolScope, DateTime> _lastAccessTimes = new();
-    private bool _disposed;
+    private volatile bool _disposed;
 
     /// <summary>
     /// Creates a new scoped pool manager
@@ -62,6 +64,7 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     /// </summary>
     public IObjectPool<T> GetPoolForScope(PoolScope scope)
     {
+        ArgumentNullException.ThrowIfNull(scope);
         if (_disposed)
             throw new ObjectDisposedException(nameof(ScopedPoolManager<>));
 
@@ -73,8 +76,10 @@ public class ScopedPoolManager<T> : IDisposable where T : class
             
             var newPool = _poolFactory(s);
             
-            _statistics.TotalScopesCreated++;
-            // ActiveScopes will be updated after GetOrAdd completes
+            lock (_statsLock)
+            {
+                _statistics.TotalScopesCreated++;
+            }
             
             _configuration.OnScopeCreated?.Invoke(s);
 
@@ -90,15 +95,17 @@ public class ScopedPoolManager<T> : IDisposable where T : class
         });
 
         // Update statistics after pool is added
-        _statistics.ActiveScopes = _scopedPools.Count;
-        if (_statistics.ActiveScopes > _statistics.PeakScopes)
+        lock (_statsLock)
         {
-            _statistics.PeakScopes = _statistics.ActiveScopes;
+            _statistics.ActiveScopes = _scopedPools.Count;
+            if (_statistics.ActiveScopes > _statistics.PeakScopes)
+            {
+                _statistics.PeakScopes = _statistics.ActiveScopes;
+            }
         }
 
-        // Track access
-        _statistics.ScopeAccessCounts.TryAdd(scope.Id, 0);
-        _statistics.ScopeAccessCounts[scope.Id]++;
+        // Track access atomically
+        _statistics.ScopeAccessCounts.AddOrUpdate(scope.Id, 1, (_, count) => count + 1);
 
         return pool;
     }
@@ -167,15 +174,19 @@ public class ScopedPoolManager<T> : IDisposable where T : class
 
     private PoolScope ResolveDIScope()
     {
-        // This would typically use IHttpContextAccessor or similar
-        // For now, fall back to ambient
+        if (_configuration.CustomScopeResolver != null)
+        {
+            return ResolveCustomScope();
+        }
         return ResolveAmbientScope();
     }
 
     private PoolScope ResolveHttpContextScope()
     {
-        // This would typically use IHttpContextAccessor
-        // For now, fall back to ambient
+        if (_configuration.CustomScopeResolver != null)
+        {
+            return ResolveCustomScope();
+        }
         return ResolveAmbientScope();
     }
 
@@ -219,14 +230,20 @@ public class ScopedPoolManager<T> : IDisposable where T : class
                     }
 
                     _lastAccessTimes.TryRemove(scope, out _);
-                    _statistics.ScopesCleanedUp++;
-                    _statistics.ActiveScopes = _scopedPools.Count;
+                    lock (_statsLock)
+                    {
+                        _statistics.ScopesCleanedUp++;
+                        _statistics.ActiveScopes = _scopedPools.Count;
+                    }
 
                     _configuration.OnScopeDisposed?.Invoke(scope);
                 }
             }
 
-            _statistics.LastCleanup = now;
+            lock (_statsLock)
+            {
+                _statistics.LastCleanup = now;
+            }
 
             if (scopesToRemove.Count > 0)
             {
@@ -254,8 +271,11 @@ public class ScopedPoolManager<T> : IDisposable where T : class
             }
 
             _lastAccessTimes.TryRemove(scope, out _);
-            _statistics.ScopesCleanedUp++;
-            _statistics.ActiveScopes = _scopedPools.Count;
+            lock (_statsLock)
+            {
+                _statistics.ScopesCleanedUp++;
+                _statistics.ActiveScopes = _scopedPools.Count;
+            }
 
             _configuration.OnScopeDisposed?.Invoke(scope);
             return true;
@@ -278,32 +298,35 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     /// </summary>
     public ScopedPoolStatistics GetStatistics()
     {
-        _statistics.ActiveScopes = _scopedPools.Count;
-
         // Calculate average objects per scope
         long totalObjects = 0;
+        var activeScopeCount = _scopedPools.Count;
         foreach (var pool in _scopedPools.Values)
         {
             if (pool is IPoolMetrics metricsPool)
             {
                 var metrics = metricsPool.ExportMetrics();
-                if (metrics.TryGetValue("objectpool_active_current", out var active))
+                if (metrics.TryGetValue(PoolConstants.Metrics.ActiveCurrent, out var active))
                 {
                     totalObjects += Convert.ToInt64(active);
                 }
-                if (metrics.TryGetValue("objectpool_available_current", out var available))
+                if (metrics.TryGetValue(PoolConstants.Metrics.AvailableCurrent, out var available))
                 {
                     totalObjects += Convert.ToInt64(available);
                 }
             }
         }
 
-        _statistics.TotalObjects = totalObjects;
-        _statistics.AverageObjectsPerScope = _scopedPools.Count > 0
-            ? (double)totalObjects / _scopedPools.Count
-            : 0;
+        lock (_statsLock)
+        {
+            _statistics.ActiveScopes = activeScopeCount;
+            _statistics.TotalObjects = totalObjects;
+            _statistics.AverageObjectsPerScope = activeScopeCount > 0
+                ? (double)totalObjects / activeScopeCount
+                : 0;
 
-        return _statistics;
+            return _statistics;
+        }
     }
 
     /// <summary>
@@ -337,12 +360,49 @@ public class ScopedPoolManager<T> : IDisposable where T : class
     }
 
     /// <summary>
+    /// Asynchronously disposes all pools and resources
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed) return;
+
+        _disposed = true;
+        _cleanupTimer?.Dispose();
+
+        foreach (var kvp in _scopedPools)
+        {
+            try
+            {
+                if (kvp.Value is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                }
+                else if (kvp.Value is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger?.LogError(ex, "Error disposing pool for scope: {Scope}", kvp.Key);
+            }
+        }
+
+        _scopedPools.Clear();
+        _lastAccessTimes.Clear();
+
+        _logger?.LogInformation("Scoped pool manager disposed asynchronously");
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
     /// Disposes all pools and resources
     /// </summary>
     public void Dispose()
     {
         if (_disposed) return;
 
+        _disposed = true;
         _cleanupTimer?.Dispose();
 
         foreach (var kvp in _scopedPools)
@@ -362,8 +422,8 @@ public class ScopedPoolManager<T> : IDisposable where T : class
 
         _scopedPools.Clear();
         _lastAccessTimes.Clear();
-        _disposed = true;
 
         _logger?.LogInformation("Scoped pool manager disposed");
+        GC.SuppressFinalize(this);
     }
 }

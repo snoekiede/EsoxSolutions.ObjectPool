@@ -22,5 +22,14 @@ namespace EsoxSolutions.ObjectPool.Interfaces
         /// <param name="poolModel">The pool model if successful</param>
         /// <returns>True if a matching object was retrieved, false otherwise</returns>
         public bool TryGetObject(Func<T, bool> query, out PoolModel<T>? poolModel);
+
+        /// <summary>
+        /// Asynchronously get an object from the pool that matches the query
+        /// </summary>
+        /// <param name="query">The query to be performed</param>
+        /// <param name="timeout">Maximum time to wait for an object</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A poolmodel</returns>
+        public Task<PoolModel<T>> GetObjectAsync(Func<T, bool> query, TimeSpan timeout = default, CancellationToken cancellationToken = default);
     }
 }

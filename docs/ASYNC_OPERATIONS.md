@@ -177,22 +177,27 @@ var config = new PoolConfiguration
 
 ### Returning Objects with Async Validation
 
+`PoolModel<T>` implements `IAsyncDisposable`, so you can use `await using` to automatically invoke `ReturnObjectAsync` (including async validation and async disposal of invalid objects):
+
 ```csharp
 var pool = GetPool<HttpClient>();
 
-// Get an object
-var pooledClient = pool.GetObject();
-var client = pooledClient.Unwrap();
+// Automatic async return via IAsyncDisposable
+await using (var pooledClient = await pool.GetObjectAsync())
+{
+    var client = pooledClient.Unwrap();
+    await client.GetAsync("https://api.example.com/data");
+}
 
+// Or explicit async return
+var explicitPooled = pool.GetObject();
 try
 {
-    // Use the client
-    await client.GetAsync("https://api.example.com/data");
+    await explicitPooled.Unwrap().GetAsync("https://api.example.com/data");
 }
 finally
 {
-    // Return with async validation
-    await pool.ReturnObjectAsync(pooledClient);
+    await pool.ReturnObjectAsync(explicitPooled);
 }
 ```
 

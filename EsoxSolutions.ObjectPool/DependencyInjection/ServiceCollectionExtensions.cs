@@ -1,12 +1,21 @@
+using EsoxSolutions.ObjectPool.HealthChecks;
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
+using EsoxSolutions.ObjectPool.Scoping;
 using EsoxSolutions.ObjectPool.Warmup;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.DependencyInjection;
+
+internal sealed record PoolConfigurationModifier<T>(Action<PoolConfiguration> Configure) where T : class;
+
+internal sealed record RegisteredPoolHealthCheckDescriptor(
+    Type PoolObjectType,
+    Action<IHealthChecksBuilder, HealthStatus?, IEnumerable<string>?> Register);
 
 /// <summary>
 /// Extension methods for registering object pools with dependency injection
@@ -22,14 +31,6 @@ public static class ServiceCollectionExtensions
         /// <typeparam name="T">The type of object to pool</typeparam>
         /// <param name="configure">Configuration action for the pool builder</param>
         /// <returns>The service collection for chaining</returns>
-        /// <example>
-        /// <code>
-        /// services.AddObjectPool&lt;DbConnection&gt;(builder => builder
-        ///     .WithFactory(() => new SqlConnection(connectionString))
-        ///     .WithMaxSize(100)
-        ///     .WithValidation(conn => conn.State != ConnectionState.Broken));
-        /// </code>
-        /// </example>
         public IServiceCollection AddObjectPool<T>(Action<ObjectPoolBuilder<T>> configure) where T : class
         {
             ArgumentNullException.ThrowIfNull(services);
@@ -41,8 +42,37 @@ public static class ServiceCollectionExtensions
             services.TryAddSingleton<IObjectPool<T>>(sp =>
             {
                 var logger = sp.GetService<ILogger<ObjectPool<T>>>();
-                return builder.Build(logger);
+                var modifiers = sp.GetServices<PoolConfigurationModifier<T>>();
+                return builder.Build(logger, modifiers);
             });
+
+            if (builder.TypeOfPool == PoolType.Dynamic)
+            {
+                services.TryAddSingleton<IObjectPoolWarmer<T>>(sp =>
+                    (IObjectPoolWarmer<T>)sp.GetRequiredService<IObjectPool<T>>());
+            }
+
+            if (builder.ScopedConfiguration != null)
+            {
+                var scopedConfig = builder.ScopedConfiguration;
+                services.TryAddSingleton(scopedConfig);
+                services.TryAddSingleton<ScopedPoolManager<T>>(sp =>
+                {
+                    var logger = sp.GetService<ILogger<ScopedPoolManager<T>>>();
+                    var modifiers = sp.GetServices<PoolConfigurationModifier<T>>().ToList();
+                    return new ScopedPoolManager<T>(
+                        _ => builder.Build(sp.GetService<ILogger<ObjectPool<T>>>(), modifiers),
+                        scopedConfig,
+                        logger);
+                });
+            }
+
+            RegisterHealthCheckDescriptor<T>(services, isQueryable: false);
+
+            if (builder.HealthChecksEnabled)
+            {
+                services.AddHealthChecks().AddObjectPoolHealthCheck<T>();
+            }
 
             return services;
         }
@@ -54,13 +84,6 @@ public static class ServiceCollectionExtensions
         /// <param name="factory">Factory method that uses IServiceProvider for dependencies</param>
         /// <param name="configure">Optional configuration action</param>
         /// <returns>The service collection for chaining</returns>
-        /// <example>
-        /// <code>
-        /// services.AddDynamicObjectPool&lt;DbConnection&gt;(
-        ///     sp => sp.GetRequiredService&lt;IDbConnectionFactory&gt;().Create(),
-        ///     config => config.MaxPoolSize = 50);
-        /// </code>
-        /// </example>
         public IServiceCollection AddDynamicObjectPool<T>(Func<IServiceProvider, T> factory,
             Action<PoolConfiguration>? configure = null) where T : class
         {
@@ -69,8 +92,12 @@ public static class ServiceCollectionExtensions
 
             services.TryAddSingleton<DynamicObjectPool<T>>(sp =>
             {
-                var config = new PoolConfiguration();
+                var config = new PoolConfiguration<T>();
                 configure?.Invoke(config);
+                foreach (var modifier in sp.GetServices<PoolConfigurationModifier<T>>())
+                {
+                    modifier.Configure(config);
+                }
 
                 var logger = sp.GetService<ILogger<ObjectPool<T>>>();
             
@@ -86,6 +113,8 @@ public static class ServiceCollectionExtensions
             // Register as IObjectPoolWarmer<T> for warm-up support
             services.TryAddSingleton<IObjectPoolWarmer<T>>(sp => sp.GetRequiredService<DynamicObjectPool<T>>());
 
+            RegisterHealthCheckDescriptor<T>(services, isQueryable: false);
+
             return services;
         }
 
@@ -95,13 +124,6 @@ public static class ServiceCollectionExtensions
         /// <typeparam name="T">The type of object to pool</typeparam>
         /// <param name="configure">Configuration action for the pool builder</param>
         /// <returns>The service collection for chaining</returns>
-        /// <example>
-        /// <code>
-        /// services.AddQueryableObjectPool&lt;Car&gt;(builder => builder
-        ///     .WithInitialObjects(initialCars)
-        ///     .WithMaxSize(100));
-        /// </code>
-        /// </example>
         public IServiceCollection AddQueryableObjectPool<T>(Action<ObjectPoolBuilder<T>> configure) where T : class
         {
             ArgumentNullException.ThrowIfNull(services);
@@ -113,11 +135,19 @@ public static class ServiceCollectionExtensions
             services.TryAddSingleton<IQueryableObjectPool<T>>(sp =>
             {
                 var logger = sp.GetService<ILogger<QueryableObjectPool<T>>>();
-                var pool = builder.Build(logger);
+                var modifiers = sp.GetServices<PoolConfigurationModifier<T>>();
+                var pool = builder.Build(logger, modifiers);
             
                 return pool as IQueryableObjectPool<T> 
                        ?? throw new InvalidOperationException("Pool is not queryable. Use AsQueryable() in configuration.");
             });
+
+            RegisterHealthCheckDescriptor<T>(services, isQueryable: true);
+
+            if (builder.HealthChecksEnabled)
+            {
+                services.AddHealthChecks().AddQueryablePoolHealthCheck<T>();
+            }
 
             return services;
         }
@@ -139,12 +169,18 @@ public static class ServiceCollectionExtensions
         
             services.TryAddSingleton<IObjectPool<T>>(sp =>
             {
-                var config = new PoolConfiguration();
+                var config = new PoolConfiguration<T>();
                 configure?.Invoke(config);
+                foreach (var modifier in sp.GetServices<PoolConfigurationModifier<T>>())
+                {
+                    modifier.Configure(config);
+                }
 
                 var logger = sp.GetService<ILogger<ObjectPool<T>>>();
                 return new ObjectPool<T>(objectList, config, logger);
             });
+
+            RegisterHealthCheckDescriptor<T>(services, isQueryable: false);
 
             return services;
         }
@@ -154,15 +190,6 @@ public static class ServiceCollectionExtensions
         /// </summary>
         /// <param name="configure">Configuration action for multiple pools</param>
         /// <returns>The service collection for chaining</returns>
-        /// <example>
-        /// <code>
-        /// services.AddObjectPools(pools =>
-        /// {
-        ///     pools.AddPool&lt;DbConnection&gt;(builder => builder.WithFactory(() => new SqlConnection(cs)));
-        ///     pools.AddPool&lt;HttpClient&gt;(builder => builder.WithFactory(() => new HttpClient()));
-        /// });
-        /// </code>
-        /// </example>
         public IServiceCollection AddObjectPools(Action<ObjectPoolCollectionBuilder> configure)
         {
             ArgumentNullException.ThrowIfNull(services);
@@ -173,6 +200,31 @@ public static class ServiceCollectionExtensions
 
             return services;
         }
+    }
+
+    private static void RegisterHealthCheckDescriptor<T>(IServiceCollection services, bool isQueryable) where T : class
+    {
+        if (services.Any(sd =>
+                sd.ServiceType == typeof(RegisteredPoolHealthCheckDescriptor) &&
+                sd.ImplementationInstance is RegisteredPoolHealthCheckDescriptor existing &&
+                existing.PoolObjectType == typeof(T)))
+        {
+            return;
+        }
+
+        services.AddSingleton(new RegisteredPoolHealthCheckDescriptor(
+            typeof(T),
+            (hcBuilder, failureStatus, tags) =>
+            {
+                if (isQueryable)
+                {
+                    hcBuilder.AddQueryablePoolHealthCheck<T>(failureStatus: failureStatus, tags: tags);
+                }
+                else
+                {
+                    hcBuilder.AddObjectPoolHealthCheck<T>(failureStatus: failureStatus, tags: tags);
+                }
+            }));
     }
 }
 

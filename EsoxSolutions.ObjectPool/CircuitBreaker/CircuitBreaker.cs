@@ -14,6 +14,7 @@ public class CircuitBreaker : IDisposable
     private readonly ConcurrentQueue<(DateTime Timestamp, bool Success)> _recentOperations = new();
     private readonly object _stateLock = new();
     private Timer? _recoveryTimer;
+    private int _halfOpenInFlight;
     private volatile bool _disposed;
 
     /// <summary>
@@ -25,6 +26,7 @@ public class CircuitBreaker : IDisposable
     {
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _logger = logger;
+        _statistics.OpenDuration = _configuration.OpenDuration;
 
         _logger?.LogInformation(
             "Circuit breaker initialized: FailureThreshold={Threshold}, OpenDuration={Duration}, SuccessThreshold={Success}",
@@ -163,12 +165,19 @@ public class CircuitBreaker : IDisposable
                         DateTime.UtcNow - _statistics.CircuitOpenedAt.Value >= _configuration.OpenDuration)
                     {
                         TransitionToHalfOpen();
+                        _halfOpenInFlight = 1;
                         return true;
                     }
                     return false;
 
                 case CircuitState.HalfOpen:
-                    // Allow limited operations in half-open state
+                    // Allow up to SuccessThreshold concurrent probe operations in half-open state
+                    var maxProbes = Math.Max(1, _configuration.SuccessThreshold);
+                    if (_halfOpenInFlight >= maxProbes)
+                    {
+                        return false;
+                    }
+                    _halfOpenInFlight++;
                     return true;
 
                 default:
@@ -184,6 +193,11 @@ public class CircuitBreaker : IDisposable
     {
         lock (_stateLock)
         {
+            if (_halfOpenInFlight > 0)
+            {
+                _halfOpenInFlight--;
+            }
+
             _statistics.TotalOperations++;
             _statistics.SuccessfulOperations++;
             _statistics.ConsecutiveFailures = 0;
@@ -214,6 +228,11 @@ public class CircuitBreaker : IDisposable
     {
         lock (_stateLock)
         {
+            if (_halfOpenInFlight > 0)
+            {
+                _halfOpenInFlight--;
+            }
+
             // Check if this exception should count as a failure
             if (_configuration.IsFailureException != null && 
                 !_configuration.IsFailureException(exception))
@@ -257,6 +276,8 @@ public class CircuitBreaker : IDisposable
     /// </summary>
     private bool ShouldOpenCircuit()
     {
+        CleanupOldOperations();
+
         // Check consecutive failures threshold
         if (_statistics.ConsecutiveFailures >= _configuration.FailureThreshold)
         {
@@ -266,14 +287,25 @@ public class CircuitBreaker : IDisposable
             return true;
         }
 
-        // Check failure percentage threshold
-        if (_statistics.TotalOperations >= _configuration.MinimumThroughput)
+        // Check failure percentage threshold within the active FailureWindow
+        var windowedTotal = _recentOperations.Count;
+        if (windowedTotal >= _configuration.MinimumThroughput)
         {
-            if (_statistics.FailurePercentage >= _configuration.FailurePercentageThreshold)
+            var windowedFailures = 0;
+            foreach (var op in _recentOperations)
+            {
+                if (!op.Success)
+                {
+                    windowedFailures++;
+                }
+            }
+
+            var windowedFailurePercentage = (double)windowedFailures / windowedTotal * 100.0;
+            if (windowedFailurePercentage >= _configuration.FailurePercentageThreshold)
             {
                 _logger?.LogWarning(
                     "Circuit breaker failure percentage threshold reached: {Percentage:F2}%",
-                    _statistics.FailurePercentage);
+                    windowedFailurePercentage);
                 return true;
             }
         }
@@ -287,9 +319,11 @@ public class CircuitBreaker : IDisposable
     private void TransitionToOpen()
     {
         _statistics.State = CircuitState.Open;
+        _statistics.OpenDuration = _configuration.OpenDuration;
         _statistics.CircuitOpenedAt = DateTime.UtcNow;
         _statistics.LastStateChange = DateTime.UtcNow;
         _statistics.CircuitOpenCount++;
+        _halfOpenInFlight = 0;
 
         _logger?.LogError(
             "Circuit breaker opened. Consecutive failures: {Failures}, Failure rate: {Rate:F2}%",
@@ -318,6 +352,7 @@ public class CircuitBreaker : IDisposable
         _statistics.State = CircuitState.HalfOpen;
         _statistics.LastStateChange = DateTime.UtcNow;
         _statistics.ConsecutiveSuccesses = 0;
+        _halfOpenInFlight = 0;
 
         _logger?.LogInformation("Circuit breaker entering half-open state for recovery testing");
 
@@ -334,6 +369,7 @@ public class CircuitBreaker : IDisposable
         _statistics.ConsecutiveFailures = 0;
         _statistics.ConsecutiveSuccesses = 0;
         _statistics.CircuitOpenedAt = null;
+        _halfOpenInFlight = 0;
 
         _logger?.LogInformation("Circuit breaker closed. Service recovered successfully");
 

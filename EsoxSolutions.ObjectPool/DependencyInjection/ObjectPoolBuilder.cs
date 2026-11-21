@@ -1,6 +1,7 @@
 using EsoxSolutions.ObjectPool.Interfaces;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
+using EsoxSolutions.ObjectPool.Scoping;
 using Microsoft.Extensions.Logging;
 
 namespace EsoxSolutions.ObjectPool.DependencyInjection;
@@ -13,9 +14,15 @@ public class ObjectPoolBuilder<T> where T : class
 {
     private readonly List<T> _initialObjects = [];
     private Func<T>? _factory;
-    private readonly PoolConfiguration _configuration = new();
+    private readonly PoolConfiguration<T> _configuration = new();
     private bool _enableHealthChecks;
     private PoolType _poolType = PoolType.Standard;
+
+    internal ScopedPoolConfiguration? ScopedConfiguration { get; set; }
+    internal PoolConfiguration<T> Configuration => _configuration;
+    internal Func<T>? Factory => _factory;
+    internal IReadOnlyList<T> InitialObjects => _initialObjects;
+    internal PoolType TypeOfPool => _poolType;
 
     /// <summary>
     /// Sets the initial objects for the pool
@@ -92,7 +99,7 @@ public class ObjectPoolBuilder<T> where T : class
         ArgumentNullException.ThrowIfNull(validationFunction);
         
         _configuration.ValidateOnReturn = true;
-        _configuration.ValidationFunction = obj => validationFunction((T)obj);
+        _configuration.TypedValidationFunction = validationFunction;
         return this;
     }
 
@@ -127,8 +134,16 @@ public class ObjectPoolBuilder<T> where T : class
     /// <summary>
     /// Builds the configured object pool
     /// </summary>
-    internal IObjectPool<T> Build(ILogger? logger)
+    internal IObjectPool<T> Build(ILogger? logger, IEnumerable<PoolConfigurationModifier<T>>? modifiers = null)
     {
+        if (modifiers != null)
+        {
+            foreach (var modifier in modifiers)
+            {
+                modifier.Configure(_configuration);
+            }
+        }
+
         return _poolType switch
         {
             PoolType.Standard => new ObjectPool<T>(_initialObjects, _configuration, logger as ILogger<ObjectPool<T>>),

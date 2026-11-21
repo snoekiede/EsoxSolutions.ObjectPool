@@ -42,6 +42,11 @@ public class ObjectPoolHealthCheck<T> : IHealthCheck where T : class
                     }));
             }
 
+            if (_options.CustomHealthCheck != null)
+            {
+                return Task.FromResult(_options.CustomHealthCheck(poolHealth));
+            }
+
             var health = poolHealth.GetHealthStatus();
             var utilization = poolHealth.UtilizationPercentage;
 

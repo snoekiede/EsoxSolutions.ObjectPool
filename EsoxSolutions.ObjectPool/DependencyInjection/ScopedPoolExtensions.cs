@@ -111,8 +111,12 @@ public static class ScopedPoolBuilderExtensions
         /// </summary>
         public ObjectPoolBuilder<T> WithTenantScoping(string tenantHeaderName = "X-Tenant-Id")
         {
-            // Configuration would be applied when building the pool
-            // For now, just return the builder as scoping is managed separately
+            ArgumentException.ThrowIfNullOrWhiteSpace(tenantHeaderName);
+            builder.ScopedConfiguration = new ScopedPoolConfiguration
+            {
+                ResolutionStrategy = ScopeResolutionStrategy.HttpContext,
+                TenantHeaderName = tenantHeaderName
+            };
             return builder;
         }
 
@@ -121,7 +125,12 @@ public static class ScopedPoolBuilderExtensions
         /// </summary>
         public ObjectPoolBuilder<T> WithUserScoping(string userClaimType = "sub")
         {
-            // Configuration would be applied when building the pool
+            ArgumentException.ThrowIfNullOrWhiteSpace(userClaimType);
+            builder.ScopedConfiguration = new ScopedPoolConfiguration
+            {
+                ResolutionStrategy = ScopeResolutionStrategy.HttpContext,
+                UserClaimType = userClaimType
+            };
             return builder;
         }
 
@@ -130,7 +139,12 @@ public static class ScopedPoolBuilderExtensions
         /// </summary>
         public ObjectPoolBuilder<T> WithCustomScoping(Func<PoolScope> scopeResolver)
         {
-            // Configuration would be applied when building the pool
+            ArgumentNullException.ThrowIfNull(scopeResolver);
+            builder.ScopedConfiguration = new ScopedPoolConfiguration
+            {
+                ResolutionStrategy = ScopeResolutionStrategy.Custom,
+                CustomScopeResolver = scopeResolver
+            };
             return builder;
         }
     }

@@ -144,11 +144,21 @@ public class ObjectMetadata
     public TimeSpan Age => DateTime.UtcNow - CreatedAt;
 
     /// <summary>
-    /// Gets the idle time (time since last access)
+    /// Gets the idle time (time since last return or access)
     /// </summary>
-    public TimeSpan IdleTime => LastAccessedAt.HasValue 
-        ? DateTime.UtcNow - LastAccessedAt.Value 
-        : Age;
+    public TimeSpan IdleTime
+    {
+        get
+        {
+            lock (_sync)
+            {
+                var lastActivity = _lastReturnedAt.HasValue && _lastAccessedAt.HasValue
+                    ? (_lastReturnedAt.Value >= _lastAccessedAt.Value ? _lastReturnedAt.Value : _lastAccessedAt.Value)
+                    : (_lastReturnedAt ?? _lastAccessedAt ?? _createdAt);
+                return DateTime.UtcNow - lastActivity;
+            }
+        }
+    }
 
     /// <summary>
     /// Whether the object has ever been accessed

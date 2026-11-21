@@ -1,3 +1,4 @@
+using EsoxSolutions.ObjectPool.DependencyInjection;
 using EsoxSolutions.ObjectPool.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -71,8 +72,17 @@ public static class HealthCheckBuilderExtensions
         {
             ArgumentNullException.ThrowIfNull(builder);
 
-            // This is a marker method - actual registration happens when pools are registered
-            // Users should call AddObjectPoolHealthCheck for each pool type explicitly
+            var descriptors = builder.Services
+                .Where(sd => sd.ServiceType == typeof(RegisteredPoolHealthCheckDescriptor))
+                .Select(sd => sd.ImplementationInstance as RegisteredPoolHealthCheckDescriptor)
+                .Where(d => d != null)
+                .ToList();
+
+            foreach (var descriptor in descriptors)
+            {
+                descriptor!.Register(builder, failureStatus, tags);
+            }
+
             return builder;
         }
 

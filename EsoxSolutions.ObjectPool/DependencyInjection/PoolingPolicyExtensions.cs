@@ -44,11 +44,8 @@ namespace EsoxSolutions.ObjectPool.DependencyInjection
             if (prioritySelector == null)
                 throw new ArgumentNullException(nameof(prioritySelector));
 
-            builder.Configure(config =>
-            {
-                config.PoolingPolicyType = PoolingPolicyType.Priority;
-                config.PrioritySelector = prioritySelector;
-            });
+            builder.Configuration.PoolingPolicyType = PoolingPolicyType.Priority;
+            builder.Configuration.TypedPrioritySelector = prioritySelector;
             return builder;
         }
 

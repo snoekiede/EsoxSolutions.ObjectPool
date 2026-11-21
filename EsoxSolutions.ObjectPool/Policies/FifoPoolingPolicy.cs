@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace EsoxSolutions.ObjectPool.Policies
 {
     /// <summary>
@@ -10,38 +8,90 @@ namespace EsoxSolutions.ObjectPool.Policies
     /// <typeparam name="T">The type of object managed by the pool</typeparam>
     public class FifoPoolingPolicy<T> : IPoolingPolicy<T> where T : notnull
     {
-        private readonly ConcurrentQueue<T> _queue = new();
+        private readonly LinkedList<T> _queue = new();
+        private readonly object _lock = new();
 
         /// <inheritdoc/>
         public string PolicyName => "FIFO";
 
         /// <inheritdoc/>
-        public int Count => _queue.Count;
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _queue.Count;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public void Add(T item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            _queue.Enqueue(item);
+            lock (_lock)
+            {
+                _queue.AddLast(item);
+            }
         }
 
         /// <inheritdoc/>
         public bool TryTake(out T? item)
         {
-            return _queue.TryDequeue(out item);
+            lock (_lock)
+            {
+                var first = _queue.First;
+                if (first is null)
+                {
+                    item = default;
+                    return false;
+                }
+
+                item = first.Value;
+                _queue.RemoveFirst();
+                return true;
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool TryTake(Func<T, bool> predicate, out T? item)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+
+            lock (_lock)
+            {
+                for (var node = _queue.First; node is not null; node = node.Next)
+                {
+                    if (predicate(node.Value))
+                    {
+                        item = node.Value;
+                        _queue.Remove(node);
+                        return true;
+                    }
+                }
+
+                item = default;
+                return false;
+            }
         }
 
         /// <inheritdoc/>
         public void Clear()
         {
-            _queue.Clear();
+            lock (_lock)
+            {
+                _queue.Clear();
+            }
         }
 
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            // Return a snapshot of the queue
-            return [.. _queue];
+            lock (_lock)
+            {
+                return [.. _queue];
+            }
         }
     }
 }

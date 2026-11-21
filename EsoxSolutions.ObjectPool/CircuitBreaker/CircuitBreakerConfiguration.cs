@@ -172,6 +172,11 @@ public class CircuitBreakerStatistics
     public bool IsClosed => State == CircuitState.Closed;
 
     /// <summary>
+    /// Configured duration for which the circuit stays open before recovery
+    /// </summary>
+    public TimeSpan OpenDuration { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Time remaining until circuit can transition to half-open
     /// </summary>
     public TimeSpan? TimeUntilRetry
@@ -182,7 +187,8 @@ public class CircuitBreakerStatistics
                 return null;
 
             var elapsed = DateTime.UtcNow - CircuitOpenedAt.Value;
-            return elapsed;
+            var remaining = OpenDuration - elapsed;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         }
     }
 }

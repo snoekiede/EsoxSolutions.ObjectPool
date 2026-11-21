@@ -9,6 +9,27 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
 
 ## [Unreleased]
 
+### Added
+- **`PoolModel<T>` implements `IAsyncDisposable`** — supports `await using var item = await pool.GetObjectAsync()` to automatically run async return validation and async disposal via `ReturnObjectAsync`.
+- **`PoolConfiguration<T>` generic configuration** — strongly-typed `TypedValidationFunction`, `TypedAsyncValidationFunction`, `TypedLifecycleHooks`, and `TypedPrioritySelector` delegates that avoid boxing value types.
+- **`IPoolingPolicy<T>.TryTake(Func<T, bool> predicate, out T? item)`** — atomic predicate-based extraction implemented across all five policies (`LifoPoolingPolicy<T>`, `FifoPoolingPolicy<T>`, `LeastRecentlyUsedPolicy<T>`, `PriorityPoolingPolicy<T>`, `RoundRobinPoolingPolicy<T>`).
+- **`IQueryableObjectPool<T>.GetObjectAsync(Func<T, bool> query, ...)`** — exposed async query retrieval directly on the `IQueryableObjectPool<T>` interface.
+- **`ScopedPoolManager<T>` implements `IAsyncDisposable`** — disposes all scoped pools asynchronously when the host or DI container shuts down.
+
+### Fixed
+- **`ActiveObjectSlots` semaphore leak on synchronous return** — `ObjectPool<T>.ReturnObject`, `DynamicObjectPool<T>.ReturnObject`, and failed queries in `QueryableObjectPool<T>.GetObject(query)` now properly release `ActiveObjectSlots`, preventing permanent exhaustion when `MaxActiveObjects` is configured.
+- **`DynamicObjectPool<T>` polymorphism** — changed `ReturnObject` from `new` to `override`, and added `override` implementations for `TryGetObject` and `ReturnObjectAsync` so disposing `PoolModel<T>`, calling `TryGetObject`, or calling `GetObjectAsync`/`ReturnObjectAsync` invokes the factory, eviction checks, circuit breaker, and lifecycle hooks consistently.
+- **Integrated `IPoolingPolicy<T>` into `ObjectPool<T>`, `DynamicObjectPool<T>`, and `QueryableObjectPool<T>`** — pools now honor `PoolConfiguration.PoolingPolicyType` (`Lifo`, `Fifo`, `Priority`, `LeastRecentlyUsed`, `RoundRobin`).
+- **`RoundRobinPoolingPolicy<T>` circular turn ordering** — tracks per-object turn sequence numbers using `ReferenceOrValueEqualityComparer<T>` so objects rotate in strict circular order even when returned out of order.
+- **Eviction correctness & resource cleanup** — fixed background eviction so expired objects at any position in the pool are removed atomically, eliminated the duplicate timer in `EvictionManager<T>`, measured `ObjectMetadata.IdleTime` from `LastReturnedAt` rather than checkout time, and ensured objects discarded due to validation failure or `MaxPoolSize` are disposed and untracked.
+- **Queryable pool concurrency & value-type matching** — replaced stack-draining queries with atomic `PoolingPolicy.TryTake(query, out var foundObject)`, fixing false `NoObjectsInPoolException`s under concurrency and properly matching value-type `default(T)` (e.g., `0`).
+- **Circuit breaker windowing & retry timer** — `ShouldOpenCircuit()` now evaluates failure percentage over operations within `FailureWindow`, `TimeUntilRetry` returns remaining time rather than elapsed time, and `HalfOpen` limits concurrent probe operations to `SuccessThreshold`.
+- **`ScopedPoolManager<T>.GetStatistics()` metric keys & thread safety** — fixed metric key lookups (`pool_objects_active_current` and `pool_objects_available_current`) and synchronized `ScopedPoolStatistics.ScopeAccessCounts`.
+- **Completed Dependency Injection & Health Check extensions** — `IServiceCollection` eviction extensions (`WithTimeToLive<T>`, `WithIdleTimeout<T>`, `WithEviction<T>`, `WithCustomEviction<T>`), builder scoping extensions (`WithTenantScoping`, `WithUserScoping`, `WithCustomScoping`), `ObjectPoolBuilder<T>.WithHealthChecks()`, `AddAllObjectPoolHealthChecks()`, and `ObjectPoolHealthCheckOptions.CustomHealthCheck` are now fully wired.
+
+### Changed
+- **Unified pool hierarchy** — `QueryableObjectPool<T>` now inherits from `ObjectPool<T>`, removing ~600 lines of duplicated code and adding `IAsyncDisposable` support to `QueryableObjectPool<T>`.
+
 ---
 
 ## [4.2.0] — 2025-07-xx — Production Hardening

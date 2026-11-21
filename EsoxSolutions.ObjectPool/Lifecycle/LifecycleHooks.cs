@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace EsoxSolutions.ObjectPool.Lifecycle;
 
 /// <summary>
@@ -194,6 +196,7 @@ public class LifecycleHookManager<T> where T : notnull
 {
     private readonly LifecycleHooks<T> _hooks;
     private readonly LifecycleHookStatistics _statistics = new();
+    private readonly object _statsLock = new();
     private readonly bool _continueOnError;
     private readonly Action<Exception, string>? _errorHandler;
 
@@ -221,7 +224,7 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnCreate?.Invoke(obj);
-            _statistics.CreateCalls++;
+            lock (_statsLock) _statistics.CreateCalls++;
         }, "OnCreate");
     }
 
@@ -234,14 +237,14 @@ public class LifecycleHookManager<T> where T : notnull
         {
             if (_hooks.OnCreateAsync != null)
             {
-                await _hooks.OnCreateAsync(obj);
+                await _hooks.OnCreateAsync(obj).ConfigureAwait(false);
             }
             else
             {
                 _hooks.OnCreate?.Invoke(obj);
             }
-            _statistics.CreateCalls++;
-        }, "OnCreateAsync");
+            lock (_statsLock) _statistics.CreateCalls++;
+        }, "OnCreateAsync").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -252,7 +255,7 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnAcquire?.Invoke(obj);
-            _statistics.AcquireCalls++;
+            lock (_statsLock) _statistics.AcquireCalls++;
         }, "OnAcquire");
     }
 
@@ -265,14 +268,14 @@ public class LifecycleHookManager<T> where T : notnull
         {
             if (_hooks.OnAcquireAsync != null)
             {
-                await _hooks.OnAcquireAsync(obj);
+                await _hooks.OnAcquireAsync(obj).ConfigureAwait(false);
             }
             else
             {
                 _hooks.OnAcquire?.Invoke(obj);
             }
-            _statistics.AcquireCalls++;
-        }, "OnAcquireAsync");
+            lock (_statsLock) _statistics.AcquireCalls++;
+        }, "OnAcquireAsync").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -283,7 +286,7 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnReturn?.Invoke(obj);
-            _statistics.ReturnCalls++;
+            lock (_statsLock) _statistics.ReturnCalls++;
         }, "OnReturn");
     }
 
@@ -296,14 +299,14 @@ public class LifecycleHookManager<T> where T : notnull
         {
             if (_hooks.OnReturnAsync != null)
             {
-                await _hooks.OnReturnAsync(obj);
+                await _hooks.OnReturnAsync(obj).ConfigureAwait(false);
             }
             else
             {
                 _hooks.OnReturn?.Invoke(obj);
             }
-            _statistics.ReturnCalls++;
-        }, "OnReturnAsync");
+            lock (_statsLock) _statistics.ReturnCalls++;
+        }, "OnReturnAsync").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -314,7 +317,7 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnDispose?.Invoke(obj);
-            _statistics.DisposeCalls++;
+            lock (_statsLock) _statistics.DisposeCalls++;
         }, "OnDispose");
     }
 
@@ -327,14 +330,14 @@ public class LifecycleHookManager<T> where T : notnull
         {
             if (_hooks.OnDisposeAsync != null)
             {
-                await _hooks.OnDisposeAsync(obj);
+                await _hooks.OnDisposeAsync(obj).ConfigureAwait(false);
             }
             else
             {
                 _hooks.OnDispose?.Invoke(obj);
             }
-            _statistics.DisposeCalls++;
-        }, "OnDisposeAsync");
+            lock (_statsLock) _statistics.DisposeCalls++;
+        }, "OnDisposeAsync").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -345,7 +348,7 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnEvict?.Invoke(obj, reason);
-            _statistics.EvictCalls++;
+            lock (_statsLock) _statistics.EvictCalls++;
         }, "OnEvict");
     }
 
@@ -357,29 +360,38 @@ public class LifecycleHookManager<T> where T : notnull
         ExecuteHook(() =>
         {
             _hooks.OnValidationFailed?.Invoke(obj);
-            _statistics.ValidationFailedCalls++;
+            lock (_statsLock) _statistics.ValidationFailedCalls++;
         }, "OnValidationFailed");
     }
 
     /// <summary>
     /// Gets the current lifecycle hook statistics
     /// </summary>
-    public LifecycleHookStatistics GetStatistics() => _statistics;
+    public LifecycleHookStatistics GetStatistics()
+    {
+        lock (_statsLock)
+        {
+            return _statistics;
+        }
+    }
 
     private void ExecuteHook(Action action, string hookName)
     {
-        var startTime = DateTime.UtcNow;
+        var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             action();
             
-            var duration = DateTime.UtcNow - startTime;
+            var duration = Stopwatch.GetElapsedTime(startTimestamp);
             UpdateExecutionTime(duration);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _statistics.ErrorCount++;
-            _statistics.LastError = ex;
+            lock (_statsLock)
+            {
+                _statistics.ErrorCount++;
+                _statistics.LastError = ex;
+            }
             _errorHandler?.Invoke(ex, hookName);
 
             if (!_continueOnError)
@@ -391,18 +403,21 @@ public class LifecycleHookManager<T> where T : notnull
 
     private async Task ExecuteHookAsync(Func<Task> action, string hookName)
     {
-        var startTime = DateTime.UtcNow;
+        var startTimestamp = Stopwatch.GetTimestamp();
         try
         {
             await action().ConfigureAwait(false);
 
-            var duration = DateTime.UtcNow - startTime;
+            var duration = Stopwatch.GetElapsedTime(startTimestamp);
             UpdateExecutionTime(duration);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            _statistics.ErrorCount++;
-            _statistics.LastError = ex;
+            lock (_statsLock)
+            {
+                _statistics.ErrorCount++;
+                _statistics.LastError = ex;
+            }
             _errorHandler?.Invoke(ex, hookName);
 
             if (!_continueOnError)
@@ -414,16 +429,19 @@ public class LifecycleHookManager<T> where T : notnull
 
     private void UpdateExecutionTime(TimeSpan duration)
     {
-        _statistics.TotalExecutionTime += duration;
-        
-        var totalCalls = _statistics.CreateCalls + _statistics.AcquireCalls + 
-                        _statistics.ReturnCalls + _statistics.DisposeCalls + 
-                        _statistics.EvictCalls + _statistics.ValidationFailedCalls;
-        
-        if (totalCalls > 0)
+        lock (_statsLock)
         {
-            _statistics.AverageExecutionTime = TimeSpan.FromTicks(
-                _statistics.TotalExecutionTime.Ticks / totalCalls);
+            _statistics.TotalExecutionTime += duration;
+            
+            var totalCalls = _statistics.CreateCalls + _statistics.AcquireCalls + 
+                            _statistics.ReturnCalls + _statistics.DisposeCalls + 
+                            _statistics.EvictCalls + _statistics.ValidationFailedCalls;
+            
+            if (totalCalls > 0)
+            {
+                _statistics.AverageExecutionTime = TimeSpan.FromTicks(
+                    _statistics.TotalExecutionTime.Ticks / totalCalls);
+            }
         }
     }
 }

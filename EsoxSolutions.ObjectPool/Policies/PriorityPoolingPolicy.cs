@@ -26,7 +26,16 @@ namespace EsoxSolutions.ObjectPool.Policies
         public string PolicyName => "Priority";
 
         /// <inheritdoc/>
-        public int Count => _count;
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _count;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public void Add(T item)
@@ -54,6 +63,45 @@ namespace EsoxSolutions.ObjectPool.Policies
                 
                 item = default;
                 return false;
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool TryTake(Func<T, bool> predicate, out T? item)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+
+            lock (_lock)
+            {
+                if (_count == 0)
+                {
+                    item = default;
+                    return false;
+                }
+
+                var skipped = new List<(T Item, int Priority)>();
+                bool found = false;
+                item = default;
+
+                while (_priorityQueue.TryDequeue(out var candidate, out var priority))
+                {
+                    if (!found && predicate(candidate))
+                    {
+                        item = candidate;
+                        _count--;
+                        found = true;
+                        break;
+                    }
+
+                    skipped.Add((candidate, priority));
+                }
+
+                foreach (var entry in skipped)
+                {
+                    _priorityQueue.Enqueue(entry.Item, entry.Priority);
+                }
+
+                return found;
             }
         }
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using EsoxSolutions.ObjectPool.Eviction;
 using EsoxSolutions.ObjectPool.Models;
 using EsoxSolutions.ObjectPool.Pools;
@@ -12,14 +13,16 @@ public class ConcurrencyHardeningTests
         var configuration = new PoolConfiguration { MaxActiveObjects = 1 };
         var pool = new DynamicObjectPool<TestResource>(() => new TestResource(), configuration);
         var successes = 0;
+        var acquiredModels = new ConcurrentBag<PoolModel<TestResource>>();
+
         var tasks = Enumerable.Range(0, 32)
             .Select(_ => Task.Run(() =>
             {
                 try
                 {
-                    using var model = pool.GetObject();
+                    var model = pool.GetObject();
+                    acquiredModels.Add(model);
                     Interlocked.Increment(ref successes);
-                    Thread.Sleep(5);
                 }
                 catch (InvalidOperationException)
                 {
@@ -30,7 +33,19 @@ public class ConcurrencyHardeningTests
         await Task.WhenAll(tasks);
 
         Assert.Equal(1, successes);
+        Assert.Equal(1, pool.Statistics.PeakActiveObjects);
+        Assert.Equal(1, pool.Statistics.CurrentActiveObjects);
+
+        foreach (var model in acquiredModels)
+        {
+            model.Dispose();
+        }
+
         Assert.Equal(0, pool.Statistics.CurrentActiveObjects);
+
+        // Verify that returning the object released the active slot so subsequent acquisitions succeed
+        using var reusable = pool.GetObject();
+        Assert.NotNull(reusable.Unwrap());
     }
 
     [Fact]

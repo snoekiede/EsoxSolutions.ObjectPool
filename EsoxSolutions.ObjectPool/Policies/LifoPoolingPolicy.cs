@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace EsoxSolutions.ObjectPool.Policies
 {
     /// <summary>
@@ -10,38 +8,96 @@ namespace EsoxSolutions.ObjectPool.Policies
     /// <typeparam name="T">The type of object managed by the pool</typeparam>
     public class LifoPoolingPolicy<T> : IPoolingPolicy<T> where T : notnull
     {
-        private readonly ConcurrentStack<T> _stack = new();
+        private readonly List<T> _items = [];
+        private readonly object _lock = new();
 
         /// <inheritdoc/>
         public string PolicyName => "LIFO";
 
         /// <inheritdoc/>
-        public int Count => _stack.Count;
+        public int Count
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _items.Count;
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public void Add(T item)
         {
             ArgumentNullException.ThrowIfNull(item);
-            _stack.Push(item);
+            lock (_lock)
+            {
+                _items.Add(item);
+            }
         }
 
         /// <inheritdoc/>
         public bool TryTake(out T? item)
         {
-            return _stack.TryPop(out item);
+            lock (_lock)
+            {
+                var lastIndex = _items.Count - 1;
+                if (lastIndex < 0)
+                {
+                    item = default;
+                    return false;
+                }
+
+                item = _items[lastIndex];
+                _items.RemoveAt(lastIndex);
+                return true;
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool TryTake(Func<T, bool> predicate, out T? item)
+        {
+            ArgumentNullException.ThrowIfNull(predicate);
+
+            lock (_lock)
+            {
+                for (int i = _items.Count - 1; i >= 0; i--)
+                {
+                    var candidate = _items[i];
+                    if (predicate(candidate))
+                    {
+                        item = candidate;
+                        _items.RemoveAt(i);
+                        return true;
+                    }
+                }
+
+                item = default;
+                return false;
+            }
         }
 
         /// <inheritdoc/>
         public void Clear()
         {
-            _stack.Clear();
+            lock (_lock)
+            {
+                _items.Clear();
+            }
         }
 
         /// <inheritdoc/>
         public IEnumerable<T> GetAll()
         {
-            // Return a snapshot of the stack
-            return [.. _stack];
+            lock (_lock)
+            {
+                var snapshot = new T[_items.Count];
+                for (int i = 0; i < _items.Count; i++)
+                {
+                    snapshot[i] = _items[_items.Count - 1 - i];
+                }
+                return snapshot;
+            }
         }
     }
 }

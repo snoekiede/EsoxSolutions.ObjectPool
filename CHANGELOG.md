@@ -10,6 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
 ## [Unreleased]
 
 ### Added
+- **.NET 11 (`net11.0`) target framework support** — multi-targeted across `net8.0;net9.0;net10.0;net11.0`.
 - **`PoolModel<T>` implements `IAsyncDisposable`** — supports `await using var item = await pool.GetObjectAsync()` to automatically run async return validation and async disposal via `ReturnObjectAsync`.
 - **`PoolConfiguration<T>` generic configuration** — strongly-typed `TypedValidationFunction`, `TypedAsyncValidationFunction`, `TypedLifecycleHooks`, and `TypedPrioritySelector` delegates that avoid boxing value types.
 - **`IPoolingPolicy<T>.TryTake(Func<T, bool> predicate, out T? item)`** — atomic predicate-based extraction implemented across all five policies (`LifoPoolingPolicy<T>`, `FifoPoolingPolicy<T>`, `LeastRecentlyUsedPolicy<T>`, `PriorityPoolingPolicy<T>`, `RoundRobinPoolingPolicy<T>`).

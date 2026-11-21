@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0;net11.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Description>A high-performance, thread-safe object pool for .NET 8+ with dependency injection, health checks, OpenTelemetry metrics, warm-up, eviction/TTL, circuit breaker, lifecycle hooks, and scoped pools for multi-tenancy. Perfect for pooling expensive resources like database connections and HTTP clients.</Description>

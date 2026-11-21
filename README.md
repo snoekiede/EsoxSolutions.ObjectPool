@@ -2,7 +2,7 @@
 
 ## Overview
 
-EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9 and .NET 10. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
+EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9, .NET 10, and .NET 11. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
 ## What's New in Version 4.2.0 — Production Hardening
 
@@ -35,7 +35,7 @@ This release focuses exclusively on correctness, thread-safety, and reliability.
 - **LRU policy O(n log n) → O(n)** — `LeastRecentlyUsedPolicy<T>.TryTake` replaced `OrderBy().First()` (LINQ, allocations, O(n log n)) with a single `foreach` pass tracking the minimum timestamp — zero allocations, half the work, all under the existing lock.
 
 ### Quality
-- **252 tests, 252 passing** — Full test suite green across .NET 8, 9, and 10.
+- **252 tests, 252 passing** — Full test suite green across .NET 8, 9, 10, and 11.
 
 ## What's New in Version 4.1.0
 

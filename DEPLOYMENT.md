@@ -3,7 +3,7 @@
 ## Prerequisites
 
 ### Framework Requirements
-- .NET 8.0, .NET 9.0 or .NET 10.0
+- .NET 8.0, .NET 9.0, .NET 10.0, or .NET 11.0
 - Microsoft.Extensions.Logging.Abstractions 8.0.0+
 - Microsoft.Extensions.DependencyInjection.Abstractions 8.0.0+
 - Microsoft.Extensions.Diagnostics.HealthChecks 8.0.0+ (for health checks)

@@ -4,9 +4,9 @@
 
 EsoxSolutions.ObjectPool is a high-performance, thread-safe object pool for .NET 8+, .NET 9, .NET 10, and .NET 11. It supports automatic return of objects, async operations, performance metrics, flexible configuration, **first-class dependency injection support**, and **ASP.NET Core Health Checks integration**. Useful for pooling expensive resources like database connections, network clients, or reusable buffers.
 
-## What's New in Version 4.2.0 — Production Hardening
+## What's New in Version 4.5.0 — .NET 11 Support & Architecture Hardening
 
-This release focuses exclusively on correctness, thread-safety, and reliability. No new public API surface is introduced; all changes are internal quality improvements.
+This release adds .NET 11 (`net11.0`) support, unifies the pooling policy architecture across all pool types, and resolves key concurrency, polymorphism, eviction, circuit-breaker, and dependency injection issues.
 
 ### Thread-Safety & Atomicity
 - **Atomic statistics counters** — `PoolStatistics` properties are now backed by private `long`/`int` fields updated via `Interlocked.Increment`, `Interlocked.Read`, and a CAS loop for peak tracking. Raw `++` mutations are gone entirely.
@@ -629,7 +629,15 @@ All pool operations are thread-safe using lock-free `ConcurrentStack<T>` and `Co
 
 ## Version History
 
-### 4.1.0 (Current) - January 2025
+### 4.5.0 (Current) - November 2026
+- **.NET 11 Support**: Multi-targeted across `net8.0`, `net9.0`, `net10.0`, and `net11.0`
+- **Unified Pooling Policy Architecture**: `ObjectPool<T>`, `DynamicObjectPool<T>`, and `QueryableObjectPool<T>` now share a unified `IPoolingPolicy<T>` storage layer with atomic predicate queries
+- **`PoolModel<T>` & `ScopedPoolManager<T>` Async Disposal**: Both now implement `IAsyncDisposable`
+- **Generic `PoolConfiguration<T>`**: Strongly-typed validation, priority, and lifecycle delegates avoiding value-type boxing
+- **Concurrency & Polymorphism Fixes**: Fixed `ActiveObjectSlots` semaphore release on synchronous returns, `DynamicObjectPool<T>` method overrides, background eviction at arbitrary pool positions, `ObjectMetadata.IdleTime` tracking, windowed circuit-breaker failure rates, and DI extension wiring
+- **252/252 tests passing** across .NET 8, 9, 10, and 11
+
+### 4.1.0 - January 2025
 - **Pooling Policies**: LIFO, FIFO, Priority, LRU, Round-Robin retrieval strategies
   - Fluent API: `.WithFifoPolicy()`, `.WithPriorityPolicy()`, etc.
   - 5 built-in policies, custom policy support via `IPoolingPolicy<T>`

@@ -1,4 +1,4 @@
-# Production Deployment Guide - Version 4.0.0
+# Production Deployment Guide - Version 4.5.0
 
 ## Prerequisites
 
@@ -479,4 +479,4 @@ objectpool_health_status{pool_name="database-pool"}
 
 ## Version
 
-This deployment guide is for **EsoxSolutions.ObjectPool v4.0.0**
+This deployment guide is for **EsoxSolutions.ObjectPool v4.5.0**

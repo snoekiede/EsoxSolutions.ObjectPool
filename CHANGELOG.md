@@ -9,6 +9,10 @@ This project adheres to [Semantic Versioning](https://semver.org/) and
 
 ## [Unreleased]
 
+---
+
+## [4.5.0] — 2026-11-21 — .NET 11 Support, Unified Architecture & Correctness Hardening
+
 ### Added
 - **.NET 11 (`net11.0`) target framework support** — multi-targeted across `net8.0;net9.0;net10.0;net11.0`.
 - **`PoolModel<T>` implements `IAsyncDisposable`** — supports `await using var item = await pool.GetObjectAsync()` to automatically run async return validation and async disposal via `ReturnObjectAsync`.
@@ -153,7 +157,8 @@ Legacy releases. Refer to Git history for details.
 
 ---
 
-[Unreleased]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v4.2.0...HEAD
+[Unreleased]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v4.5.0...HEAD
+[4.5.0]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v4.2.0...v4.5.0
 [4.2.0]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/snoekiede/EsoxSolutions.ObjectPool/compare/v3.0.0...v4.0.0
